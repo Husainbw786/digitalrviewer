@@ -1,3 +1,16 @@
+# DigitalRViewer
+
+DigitalRViewer is a rebranded build of [RustDesk](https://github.com/rustdesk/rustdesk), preconfigured for the
+DigitalRViewer server. It is distributed under the same **AGPL-3.0** licence (see `LICENCE`); the source of every
+build is this repository.
+
+- Branding, server settings and the upstream-merge checklist: [`branding/README.md`](branding/README.md)
+- macOS builds: Actions → "DigitalRViewer macOS" (or push a `v*` tag); dmgs are attached to the Release.
+
+The original RustDesk README follows.
+
+---
+
 <p align="center">
   <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
   <a href="#raw-steps-to-build">Build</a> •
