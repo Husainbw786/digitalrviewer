@@ -37,12 +37,25 @@ The internal crate and library names (`rustdesk`, `librustdesk`, `flutter_hbb`) 
 (`com.carriez`) are deliberately unchanged: users never see them, and renaming them would
 conflict with almost every upstream merge.
 
+## Static Windows identity
+
+| File | What |
+|---|---|
+| `flutter/windows/runner/Runner.rc` | exe details: product name, description, company, copyright, original filename |
+| `Cargo.toml`, `libs/portable/Cargo.toml` | `[package.metadata.winres]` for the Rust binary and the self-extracting exe |
+| `.github/workflows/digitalrviewer-windows.yml` | renames `rustdesk.exe` to `DigitalRViewer.exe`; MSI `--app-name` / `-m` |
+
+At runtime the app name sets the install folder (`C:\Program Files\DigitalRViewer`), the
+Windows service, shortcuts, the Apps & features entry and the remote printer name.
+`librustdesk.dll`, `drivers\RustDeskPrinterDriver` and the driver's own name are internal and stay.
+
 ## Artwork
 
 `python3 branding/gen-icons.py` (needs Pillow) regenerates all icons:
 
 - `res/*.png` and `res/mac-*`
 - `flutter/macos/Runner/AppIcon.icns`
+- `res/icon.ico`, `res/tray-icon.ico`, `flutter/windows/runner/resources/app_icon.ico`
 - `flutter/assets/icon.png` and `flutter/assets/logo.png`
 - the placeholder SVGs
 
@@ -57,8 +70,11 @@ Until a real logo exists it draws a placeholder "DR" monogram. For the real logo
 ## Build
 
 `.github/workflows/digitalrviewer.yml` builds the macOS dmgs (Intel + Apple Silicon).
-It's derived from the `build-for-macOS` job in `flutter-build.yml`, and runs on manual
-dispatch or on a `v*` tag. The dmgs go to a GitHub Release.
+It's derived from the `build-for-macOS` job in `flutter-build.yml`.
+
+`.github/workflows/digitalrviewer-windows.yml` builds the Windows x64 self-extracting exe and
+MSI, derived from the `build-for-windows-flutter` job. Both run on manual dispatch or on a
+`v*` tag and publish to a GitHub Release.
 
 Upstream's own workflows are disabled on this fork in the Actions settings, not by editing their files.
 
@@ -72,7 +88,8 @@ git checkout digitalrviewer && git merge master
 
 Conflicts, if any, will be in the files listed above. After merging, also check:
 
-- whether `flutter-build.yml`'s `build-for-macOS` job changed (port the change into `digitalrviewer.yml`);
+- whether `flutter-build.yml`'s `build-for-macOS` or `build-for-windows-flutter` job changed
+  (port the change into `digitalrviewer.yml` / `digitalrviewer-windows.yml`);
 - for new hardcoded "RustDesk" strings:
 
   ```bash

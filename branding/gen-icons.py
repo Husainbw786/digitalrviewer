@@ -114,6 +114,14 @@ def main():
         subprocess.run(["iconutil", "-c", "icns", "-o", icns, iconset], check=True)
         print("wrote", os.path.relpath(icns, ROOT))
 
+    # Windows icons: exe/MSI/portable packer, Flutter runner window, and tray.
+    ico_sizes = [(s, s) for s in (16, 24, 32, 48, 64, 128, 256)]
+    for path in [("res", "icon.ico"), ("flutter", "windows", "runner", "resources", "app_icon.ico")]:
+        src.resize((256, 256), Image.LANCZOS).save(p(*path), sizes=ico_sizes)
+        print("wrote", os.path.join(*path))
+    src.resize((64, 64), Image.LANCZOS).save(p("res", "tray-icon.ico"), sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64)])
+    print("wrote", os.path.join("res", "tray-icon.ico"))
+
     # SVGs used by the Flutter UI and docs (placeholder only; with a real logo, supply SVGs by hand).
     if not os.path.exists(SRC):
         for path in [("flutter", "assets", "icon.svg"), ("res", "logo.svg"), ("res", "scalable.svg")]:
