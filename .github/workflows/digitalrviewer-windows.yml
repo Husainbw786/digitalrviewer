@@ -205,7 +205,7 @@ jobs:
       - name: Build msi
         env:
           # Support links shown in Windows "Apps & features" (RustDesk's GitHub by default).
-          CUSTOM_ARP: '{"Contact": {"msi": "ARPCONTACT", "v": "https://digital53.com"}, "HelpLink": {"msi": "ARPHELPLINK", "v": "https://digital53.com"}, "ReadMe": {"msi": "ARPREADME", "v": "https://digital53.com"}}'
+          CUSTOM_ARP: '{"Contact": {"msi": "ARPCONTACT", "v": "https://digitalrviewer.com"}, "HelpLink": {"msi": "ARPHELPLINK", "v": "https://digitalrviewer.com"}, "ReadMe": {"msi": "ARPREADME", "v": "https://digitalrviewer.com"}}'
         run: |
           pushd ./res/msi
           python preprocess.py --arp -d ../../rustdesk --app-name ${{ env.APP_NAME }} -m ${{ env.APP_NAME }} --custom-arp "$env:CUSTOM_ARP"
