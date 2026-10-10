@@ -24,6 +24,7 @@ import '../screens/shell.dart';
 import '../screens/transfers_view.dart';
 import '../theme.dart';
 import '../widgets.dart' show drFormatId;
+import 'dr_update.dart';
 
 /// Master switch for the DigitalRViewer UI.
 const bool kDrUi = true;
@@ -58,6 +59,7 @@ class DrMainWindow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = DrColors.of(context);
+    DrUpdater.instance.start();
     return Scaffold(
       backgroundColor: c.bg,
       body: Obx(() {
@@ -102,6 +104,7 @@ class DrMainWindow extends StatelessWidget {
         tab: tab,
         // macOS draws the traffic lights at the top-left of the window.
         leadingInset: isMacOS ? 62 : 0,
+        actions: const DrUpdatePill(),
         onTab: (t) {
           if (t == DrTab.settings) {
             if (hideSettings) return;

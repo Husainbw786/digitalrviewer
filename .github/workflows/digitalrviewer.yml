@@ -92,6 +92,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Read DigitalRViewer version
+        shell: bash
+        run: |
+          v=$(sed -n "s/^const String kDrVersion = '\(.*\)';/\1/p" flutter/lib/digitalrviewer/app/dr_version.dart)
+          test -n "$v" || { echo "kDrVersion not found"; exit 1; }
+          echo "DR_VERSION=$v" >> "$GITHUB_ENV"
+
       - name: Import the codesign cert
         if: env.MACOS_P12_BASE64 != null
         uses: apple-actions/import-codesign-certs@253ddeeac23f2bdad1646faac5c8c2832e800071 # v1
@@ -243,14 +250,14 @@ jobs:
           if [ -z "$MACOS_P12_BASE64" ]; then
             codesign --force --deep --sign - ./flutter/build/macos/Build/Products/Release/DigitalRViewer.app
           fi
-          create-dmg --icon "DigitalRViewer.app" 200 190 --hide-extension "DigitalRViewer.app" --window-size 800 400 --app-drop-link 600 185 DigitalRViewer-${{ env.VERSION }}.dmg ./flutter/build/macos/Build/Products/Release/DigitalRViewer.app
+          create-dmg --icon "DigitalRViewer.app" 200 190 --hide-extension "DigitalRViewer.app" --window-size 800 400 --app-drop-link 600 185 DigitalRViewer-${{ env.DR_VERSION }}.dmg ./flutter/build/macos/Build/Products/Release/DigitalRViewer.app
 
       - name: Upload unsigned macOS app
         if: env.UPLOAD_ARTIFACT == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: DigitalRViewer-unsigned-macos-${{ matrix.job.arch }}
-          path: DigitalRViewer-${{ env.VERSION }}.dmg # can not upload the directory directly or tar.gz, which destroy the link structure, causing the codesign failed
+          path: DigitalRViewer-${{ env.DR_VERSION }}.dmg # can not upload the directory directly or tar.gz, which destroy the link structure, causing the codesign failed
 
       - name: Codesign app and create signed dmg
         if: env.MACOS_P12_BASE64 != null && env.UPLOAD_ARTIFACT == 'true'
@@ -269,10 +276,10 @@ jobs:
             ./flutter/build/macos/Build/Products/Release/DigitalRViewer.app \
             ${{ secrets.MACOS_CODESIGN_IDENTITY }} \
             ./flutter/macos/Runner/Release.entitlements
-          create-dmg --icon "DigitalRViewer.app" 200 190 --hide-extension "DigitalRViewer.app" --window-size 800 400 --app-drop-link 600 185 DigitalRViewer-${{ env.VERSION }}.dmg ./flutter/build/macos/Build/Products/Release/DigitalRViewer.app
-          codesign --force --options runtime -s ${{ secrets.MACOS_CODESIGN_IDENTITY }} --deep --strict DigitalRViewer-${{ env.VERSION }}.dmg -vvv
-          # notarize the DigitalRViewer-${{ env.VERSION }}.dmg
-          rcodesign notary-submit --api-key-path ${{ github.workspace }}/rustdesk.json  --staple DigitalRViewer-${{ env.VERSION }}.dmg
+          create-dmg --icon "DigitalRViewer.app" 200 190 --hide-extension "DigitalRViewer.app" --window-size 800 400 --app-drop-link 600 185 DigitalRViewer-${{ env.DR_VERSION }}.dmg ./flutter/build/macos/Build/Products/Release/DigitalRViewer.app
+          codesign --force --options runtime -s ${{ secrets.MACOS_CODESIGN_IDENTITY }} --deep --strict DigitalRViewer-${{ env.DR_VERSION }}.dmg -vvv
+          # notarize the DigitalRViewer-${{ env.DR_VERSION }}.dmg
+          rcodesign notary-submit --api-key-path ${{ github.workspace }}/rustdesk.json  --staple DigitalRViewer-${{ env.DR_VERSION }}.dmg
 
       - name: Add arch to dmg name
         if: env.UPLOAD_ARTIFACT == 'true'

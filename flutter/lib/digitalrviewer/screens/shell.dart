@@ -16,12 +16,16 @@ class DrTopBar extends StatelessWidget {
   /// Optional widget at the far right (e.g. Windows min/max/close).
   final Widget? trailing;
 
+  /// Optional widget just left of the settings button (e.g. the update pill).
+  final Widget? actions;
+
   const DrTopBar(
       {super.key,
       required this.tab,
       required this.onTab,
       this.leadingInset = 0,
-      this.trailing});
+      this.trailing,
+      this.actions});
 
   static const tabs = [DrTab.home, DrTab.devices, DrTab.transfers];
   static const labels = ['Home', 'Devices', 'Transfers'];
@@ -46,6 +50,7 @@ class DrTopBar extends StatelessWidget {
               ),
             ),
           ),
+          if (actions != null) ...[actions!, const SizedBox(width: 10)],
           DrIconCircle(
             icon: Icons.settings_outlined,
             tooltip: 'Settings',

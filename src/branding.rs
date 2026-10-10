@@ -22,6 +22,10 @@ pub const API_SERVER: &str = "https://rustdesk.163-128-34-42.sslip.io";
 /// Public key of the hbbs/hbbr key pair (`/opt/rustdesk/data/id_ed25519.pub` on the server).
 pub const KEY: &str = "ihG8O4mHHiAvvNjVbt02xFUm3umqBfgQFQlyIlyosLQ=";
 
+/// GitHub repository whose releases the in-app updater may download from
+/// (github.com/<owner>/<repo>/releases/download/<tag>/<file>).
+pub const UPDATE_REPO: (&str, &str) = ("Husainbw786", "digitalrviewer");
+
 pub fn apply() {
     *config::APP_NAME.write().unwrap() = APP_NAME.to_owned();
 

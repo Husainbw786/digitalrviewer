@@ -127,3 +127,22 @@ Preview the screens in a browser with sample data (no Rust/Xcode needed):
 cd branding/ui_preview && flutter run -d web-server --web-port 8790
 # http://localhost:8790/?screen=home|devices|transfers|settings|incoming|cm  (&dark=1)
 ```
+
+## Releases and in-app updates
+
+`flutter/lib/digitalrviewer/app/dr_version.dart` holds the release version (`kDrVersion`,
+e.g. `1.5.0.2` = upstream 1.5.0, our build 2). The workflows read it to name the installers;
+Cargo.toml's `1.5.0` stays because peers compare it during connections.
+
+The app checks `https://digitalrviewer.com/download/latest.json` 8 s after start and every 4 h.
+When a newer version exists the top bar shows **Update** → **Downloading n%** →
+**Restart to update**. Downloads come from this repo's GitHub releases (allowed in
+`src/updater.rs` via `branding::UPDATE_REPO`); installing reuses RustDesk's updater
+(UAC prompt on Windows, administrator password on macOS).
+
+To ship a release:
+
+1. Bump `kDrVersion` and commit.
+2. Run both workflows with the same tag, e.g. `-f tag=v1.5.0.2`.
+3. On the server, run `/opt/rustdesk-admin/publish.sh v1.5.0.2`. Installed apps then offer the update,
+   and the website's download buttons switch to the new files.
