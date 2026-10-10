@@ -36,5 +36,4 @@ pub fn apply() {
 
     let mut builtin = config::BUILTIN_SETTINGS.write().unwrap();
     builtin.insert("hide-server-settings".to_owned(), "Y".to_owned());
-    builtin.insert("hide-help-cards".to_owned(), "Y".to_owned());
 }

@@ -24,6 +24,8 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
+import '../../digitalrviewer/app/dr_main_window.dart' show kDrUi;
+import '../../digitalrviewer/screens/settings_view.dart' show DrSettingsShell;
 
 const double _kTabWidth = 200;
 const double _kTabHeight = 42;
@@ -273,6 +275,32 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (kDrUi && !isWeb) {
+      final tabs = _settingTabs();
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: _buildBlock(children: [
+          Expanded(
+            child: Obx(() => DrSettingsShell(
+                  sections: tabs.map((t) => translate(t.label)).toList(),
+                  selected: tabs.indexWhere((t) => t.key == selectedTab.value),
+                  onSelect: (i) {
+                    final index =
+                        DesktopSettingPage.tabKeys.indexOf(tabs[i].key);
+                    if (index == -1) return;
+                    controller.jumpToPage(index);
+                    selectedTab.value = tabs[i].key;
+                  },
+                  content: PageView(
+                    controller: controller,
+                    physics: NeverScrollableScrollPhysics(),
+                    children: _children(),
+                  ),
+                )),
+          ),
+        ]),
+      );
+    }
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       body: _buildBlock(

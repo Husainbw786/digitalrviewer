@@ -11,6 +11,7 @@ import 'package:window_manager/window_manager.dart';
 // import 'package:flutter/services.dart';
 
 import '../../common/shared_state.dart';
+import '../../digitalrviewer/app/dr_main_window.dart';
 
 class DesktopTabPage extends StatefulWidget {
   const DesktopTabPage({Key? key}) : super(key: key);
@@ -20,6 +21,7 @@ class DesktopTabPage extends StatefulWidget {
 
   static void onAddSetting(
       {SettingsTabKey initialPage = SettingsTabKey.general}) {
+    if (kDrUi && !bind.isIncomingOnly()) return drShowSettings(initialPage);
     try {
       DesktopTabController tabController = Get.find<DesktopTabController>();
       tabController.add(TabInfo(
@@ -91,7 +93,11 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
 
   @override
   Widget build(BuildContext context) {
-    final tabWidget = Container(
+    final tabWidget = kDrUi && !bind.isIncomingOnly()
+        ? DrMainWindow(
+            tabController: tabController,
+            homePage: tabController.state.value.tabs.first.page)
+        : Container(
         child: Scaffold(
             backgroundColor: Theme.of(context).colorScheme.background,
             body: DesktopTab(

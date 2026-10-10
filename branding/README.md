@@ -95,3 +95,35 @@ Conflicts, if any, will be in the files listed above. After merging, also check:
   ```bash
   git diff master@{1} master | grep '^+.*RustDesk'
   ```
+
+## Desktop UI (Digital R Viewer design)
+
+The redesigned screens live in `flutter/lib/digitalrviewer/`:
+
+| Path | What |
+|---|---|
+| `theme.dart` | Design tokens (colours, radii, type), light + dark, and `drThemeData()` |
+| `widgets.dart` | Pill buttons, cards, toggles, segmented nav, chips, fields, notices |
+| `screens/*.dart` | Home, Devices, Transfers, Settings shell, Incoming request: Flutter-only, take data + callbacks |
+| `app/dr_main_window.dart` | Adapters that feed RustDesk's models into the screens; `kDrUi` master switch |
+| `app/dr_cm.dart` | Incoming-request card for the connection-manager window |
+
+Fonts (Albert Sans, Source Serif 4, SIL OFL) are in `flutter/assets/fonts/digitalrviewer/`.
+
+Hooks in stock RustDesk files (each guarded by `kDrUi`, so `kDrUi = false` restores the stock UI):
+
+| File | Hook |
+|---|---|
+| `flutter/lib/main.dart` | `theme`/`darkTheme` wrapped in `drAppTheme()` (2 places) |
+| `flutter/lib/desktop/pages/desktop_tab_page.dart` | main window → `DrMainWindow`; `onAddSetting` → `drShowSettings` |
+| `flutter/lib/desktop/pages/desktop_home_page.dart` | `build()` → `DrHomePane` (state, timers and multi-window handlers unchanged); help cards → `DrNotice` |
+| `flutter/lib/desktop/pages/desktop_setting_page.dart` | `build()` → `DrSettingsShell` around the existing pages |
+| `flutter/lib/desktop/pages/server_page.dart` | pending request → `DrCmRequestCard` (other CM states keep the stock panel) |
+| `flutter/lib/common.dart` | `MyTheme.accent*` and `MyTheme.button` recoloured |
+
+Preview the screens in a browser with sample data (no Rust/Xcode needed):
+
+```bash
+cd branding/ui_preview && flutter run -d web-server --web-port 8790
+# http://localhost:8790/?screen=home|devices|transfers|settings|incoming|cm  (&dark=1)
+```

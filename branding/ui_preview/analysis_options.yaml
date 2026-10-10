@@ -1,0 +1,4 @@
+analyzer:
+  exclude:
+    - build/**
+    - lib/dr/app/**   # app-side adapters; need the full RustDesk app

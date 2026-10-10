@@ -177,6 +177,21 @@ flutter:
     - family: More
       fonts:
         - asset: assets/more.ttf
+    # DigitalRViewer design fonts (SIL OFL 1.1, licences in assets/fonts/digitalrviewer/).
+    - family: AlbertSans
+      fonts:
+        - asset: assets/fonts/digitalrviewer/AlbertSans-400.ttf
+        - asset: assets/fonts/digitalrviewer/AlbertSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/digitalrviewer/AlbertSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/digitalrviewer/AlbertSans-700.ttf
+          weight: 700
+    - family: SourceSerif4
+      fonts:
+        - asset: assets/fonts/digitalrviewer/SourceSerif4-400.ttf
+        - asset: assets/fonts/digitalrviewer/SourceSerif4-500.ttf
+          weight: 500
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.

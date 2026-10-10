@@ -29,6 +29,7 @@ import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
 import 'mobile/widgets/deploy_dialog.dart';
 import 'models/platform_model.dart';
+import 'digitalrviewer/app/dr_main_window.dart' show drAppTheme;
 
 /// Basic window and launch properties.
 int? kWindowId;
@@ -361,8 +362,8 @@ void _runApp(
       navigatorKey: globalKey,
       debugShowCheckedModeBanner: false,
       title: title,
-      theme: MyTheme.lightTheme,
-      darkTheme: MyTheme.darkTheme,
+      theme: drAppTheme(MyTheme.lightTheme),
+      darkTheme: drAppTheme(MyTheme.darkTheme),
       themeMode: themeMode,
       home: home,
       localizationsDelegates: const [
@@ -498,8 +499,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           title: isWeb
               ? '${bind.mainGetAppNameSync()} Web Client V2 (Preview)'
               : bind.mainGetAppNameSync(),
-          theme: MyTheme.lightTheme,
-          darkTheme: MyTheme.darkTheme,
+          theme: drAppTheme(MyTheme.lightTheme),
+          darkTheme: drAppTheme(MyTheme.darkTheme),
           themeMode: MyTheme.currentThemeMode(),
           home: isDesktop
               ? const DesktopTabPage()

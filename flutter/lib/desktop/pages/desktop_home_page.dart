@@ -24,6 +24,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
 import '../widgets/button.dart';
+import '../../digitalrviewer/app/dr_main_window.dart';
+import '../../digitalrviewer/widgets.dart' show DrNotice;
 
 class DesktopHomePage extends StatefulWidget {
   const DesktopHomePage({Key? key}) : super(key: key);
@@ -59,6 +61,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
+    if (kDrUi && !isIncomingOnly) {
+      return _buildBlock(
+          child: DrHomePane(
+              banners: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (!bind.isOutgoingOnly()) buildPresetPasswordWarning(),
+        Obx(() => buildHelpCards(stateGlobal.updateUrl.value)),
+      ])));
+    }
     return _buildBlock(
         child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,6 +611,15 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       }
     }
 
+    if (kDrUi && !bind.isIncomingOnly()) {
+      return DrNotice(
+        title: translate(title),
+        message: translate(content),
+        actionLabel: btnText.isEmpty ? null : translate(btnText),
+        onAction: onPressed,
+        onClose: closeButton == true ? closeCard : null,
+      ).marginOnly(left: 40, right: 40, top: 20);
+    }
     return Stack(
       children: [
         Container(
