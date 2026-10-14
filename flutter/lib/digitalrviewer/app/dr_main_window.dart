@@ -17,6 +17,7 @@ import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../screens/devices_view.dart';
 import '../screens/home_view.dart';
@@ -44,6 +45,32 @@ void drShowSettings(SettingsTabKey initialPage) {
 }
 
 void drShowTab(DrTab tab) => _drTab.value = tab;
+
+/// The new layout needs more room than the stock UI: enforce a minimum main-window size,
+/// and grow a window restored at a smaller size (e.g. saved by an older build).
+const Size kDrMinMainWindowSize = Size(960, 660);
+const Size kDrDefaultMainWindowSize = Size(1180, 760);
+
+Future<void> drEnsureMainWindowSize() async {
+  if (!kDrUi || !isDesktop || bind.isIncomingOnly()) return;
+  try {
+    await windowManager.setMinimumSize(kDrMinMainWindowSize);
+    final s = await windowManager.getSize();
+    if (s.width < kDrMinMainWindowSize.width ||
+        s.height < kDrMinMainWindowSize.height) {
+      await windowManager.setSize(Size(
+          s.width < kDrDefaultMainWindowSize.width
+              ? kDrDefaultMainWindowSize.width
+              : s.width,
+          s.height < kDrDefaultMainWindowSize.height
+              ? kDrDefaultMainWindowSize.height
+              : s.height));
+      await windowManager.center();
+    }
+  } catch (e) {
+    debugPrint('drEnsureMainWindowSize: $e');
+  }
+}
 
 /// The main window: draggable top bar (brand, nav, settings, window buttons) + pages.
 class DrMainWindow extends StatelessWidget {
@@ -179,9 +206,9 @@ class _DrHomePaneState extends State<DrHomePane> {
         final myId = model.serverId.text.replaceAll(' ', '');
         final password = showOneTime ? model.serverPasswd.text : null;
         return Column(children: [
-          widget.banners,
           Expanded(
             child: DrHomeView(
+              banner: widget.banners,
               data: DrHomeData(
                 myId: outgoingOnly ? '' : myId,
                 password: outgoingOnly ? null : password,

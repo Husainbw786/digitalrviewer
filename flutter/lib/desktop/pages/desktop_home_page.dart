@@ -618,7 +618,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         actionLabel: btnText.isEmpty ? null : translate(btnText),
         onAction: onPressed,
         onClose: closeButton == true ? closeCard : null,
-      ).marginOnly(left: 40, right: 40, top: 20);
+      ).marginOnly(bottom: 16);
     }
     return Stack(
       children: [

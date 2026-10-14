@@ -37,8 +37,11 @@ class _DrDevicesViewState extends State<DrDevicesView> {
   DrDeviceFilter _filter = DrDeviceFilter.all;
   String _query = '';
 
-  // Column flex from the mockup grid: 2.2fr 1.3fr 1fr 1.2fr 1fr 1.7fr.
-  static const _flex = [22, 13, 10, 12, 10, 17];
+  // Column flex from the mockup grid (2.2fr 1.3fr 1fr 1.2fr 1fr); the actions column is a
+  // fixed width so its buttons never get squeezed.
+  static const _flex = [22, 13, 10, 12, 10];
+  static const _actionsWidth = 250.0;
+  bool _narrow = false; // hide System and Last connected below ~860 px of table width
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +102,9 @@ class _DrDevicesViewState extends State<DrDevicesView> {
                 onTap: () => setState(() => _filter = DrDeviceFilter.offline)),
           ]),
           const SizedBox(height: 22),
-          DrCard(
+          LayoutBuilder(builder: (context, box) {
+            _narrow = box.maxWidth < 860;
+            return DrCard(
             padding: EdgeInsets.zero,
             child: Column(children: [
               _header(c),
@@ -115,16 +120,21 @@ class _DrDevicesViewState extends State<DrDevicesView> {
               for (var i = 0; i < rows.length; i++)
                 _row(c, rows[i], last: i == rows.length - 1),
             ]),
-          ),
+          );
+          }),
         ],
       ),
     );
   }
 
-  Widget _cells(List<Widget> cells) => Row(children: [
-        for (var i = 0; i < cells.length; i++)
-          Expanded(flex: _flex[i], child: cells[i]),
-      ]);
+  /// cells: name, id, system, last connected, status, actions.
+  Widget _cells(List<Widget> cells) {
+    final shown = [0, 1, if (!_narrow) 2, if (!_narrow) 3, 4];
+    return Row(children: [
+      for (final i in shown) Expanded(flex: _flex[i], child: cells[i]),
+      SizedBox(width: _actionsWidth, child: cells[5]),
+    ]);
+  }
 
   Widget _header(DrColors c) {
     final s = DrText.sans(12, c.textSubtle, weight: FontWeight.w600);

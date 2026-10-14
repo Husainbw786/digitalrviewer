@@ -48,6 +48,9 @@ class DrHomeView extends StatelessWidget {
   final VoidCallback onSeeAll;
   final Widget? idFieldOverride; // lets the app keep its own autocomplete field
 
+  /// Notices shown above the cards (permissions, install prompts, errors).
+  final Widget? banner;
+
   const DrHomeView(
       {super.key,
       required this.data,
@@ -58,54 +61,79 @@ class DrHomeView extends StatelessWidget {
       required this.onConnect,
       required this.onConnectDevice,
       required this.onSeeAll,
-      this.idFieldOverride});
+      this.idFieldOverride,
+      this.banner});
 
   @override
   Widget build(BuildContext context) {
     final c = DrColors.of(context);
     return DrPage(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 340,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth;
+        // Side by side like the mockup when there is room, stacked otherwise.
+        final sideBySide = w >= 760;
+        final hero = sideBySide
+            ? ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 300),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                          flex: 108,
+                          child: _shareCard(context, c, fill: true)),
+                      const SizedBox(width: 20),
+                      Expanded(
+                          flex: 100,
+                          child: _connectCard(context, c, fill: true)),
+                    ],
+                  ),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _shareCard(context, c, fill: false),
+                  const SizedBox(height: 16),
+                  _connectCard(context, c, fill: false),
+                ],
+              );
+        final cols = w >= 980 ? 4 : (w >= 620 ? 3 : 2);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (banner != null) banner!,
+            hero,
+            const SizedBox(height: 28),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Expanded(flex: 108, child: _shareCard(context, c)),
-                const SizedBox(width: 20),
-                Expanded(flex: 100, child: _connectCard(context, c)),
+                Text('Recent devices',
+                    style: DrText.sans(15, c.text, weight: FontWeight.w600)),
+                const Spacer(),
+                DrLink('See all',
+                    onTap: onSeeAll,
+                    weight: FontWeight.w500,
+                    color: c.textMuted),
               ],
             ),
-          ),
-          const SizedBox(height: 28),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text('Recent devices',
-                  style: DrText.sans(15, c.text, weight: FontWeight.w600)),
-              const Spacer(),
-              DrLink('See all',
-                  onTap: onSeeAll, weight: FontWeight.w500, color: c.textMuted),
-            ],
-          ),
-          const SizedBox(height: 14),
-          data.recent.isEmpty
-              ? DrCard(
-                  radius: DrRadius.tile,
-                  padding: const EdgeInsets.all(22),
-                  child: Text(
-                      'Devices you connect to will show up here.',
-                      style: DrText.sans(13, c.textSubtle)),
-                )
-              : _recentGrid(c),
-        ],
-      ),
+            const SizedBox(height: 14),
+            data.recent.isEmpty
+                ? DrCard(
+                    radius: DrRadius.tile,
+                    padding: const EdgeInsets.all(22),
+                    child: Text('Devices you connect to will show up here.',
+                        style: DrText.sans(13, c.textSubtle)),
+                  )
+                : _recentGrid(c, w, cols),
+          ],
+        );
+      }),
     );
   }
 
-  Widget _shareCard(BuildContext context, DrColors c) {
+  Widget _shareCard(BuildContext context, DrColors c, {required bool fill}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(32, 30, 32, 30),
       decoration: BoxDecoration(
@@ -133,19 +161,24 @@ class DrHomeView extends StatelessWidget {
               ),
             ]),
           ],
-          const Spacer(),
+          if (fill) const Spacer(),
+          const SizedBox(height: 24),
           Wrap(
             spacing: 40,
             runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: [
               _labelled(c, 'Your ID',
-                  SelectableText(drFormatId(data.myId),
-                      style: DrText.sans(46, c.text,
-                          weight: FontWeight.w600,
-                          letterSpacing: -0.46,
-                          height: 1.05,
-                          tabular: true))),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: SelectableText(drFormatId(data.myId),
+                        style: DrText.sans(46, c.text,
+                            weight: FontWeight.w600,
+                            letterSpacing: -0.46,
+                            height: 1.05,
+                            tabular: true)),
+                  )),
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: _labelled(
@@ -183,7 +216,7 @@ class DrHomeView extends StatelessWidget {
         ],
       );
 
-  Widget _connectCard(BuildContext context, DrColors c) {
+  Widget _connectCard(BuildContext context, DrColors c, {required bool fill}) {
     return DrCard(
       radius: DrRadius.hero,
       shadow: true,
@@ -195,7 +228,8 @@ class DrHomeView extends StatelessWidget {
               style: DrText.sans(13, c.textMuted, weight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text('Reach another device', style: DrText.serif(32, c.text)),
-          const Spacer(),
+          if (fill) const Spacer(),
+          const SizedBox(height: 24),
           Text('Device ID', style: DrText.sans(13, c.textMuted)),
           const SizedBox(height: 8),
           idFieldOverride ??
@@ -218,20 +252,20 @@ class DrHomeView extends StatelessWidget {
     );
   }
 
-  Widget _recentGrid(DrColors c) {
-    final items = data.recent.take(4).toList();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _recentGrid(DrColors c, double width, int cols) {
+    const gap = 16.0;
+    final tileW = (width - gap * (cols - 1)) / cols;
+    final items = data.recent.take(cols == 4 ? 4 : cols * 2).toList();
+    return Wrap(
+      spacing: gap,
+      runSpacing: gap,
       children: [
-        for (var i = 0; i < 4; i++) ...[
-          if (i > 0) const SizedBox(width: 16),
-          Expanded(
-              child: i < items.length
-                  ? _DeviceTile(
-                      item: items[i],
-                      onConnect: () => onConnectDevice(items[i].id))
-                  : const SizedBox()),
-        ]
+        for (final item in items)
+          SizedBox(
+            width: tileW,
+            child: _DeviceTile(
+                item: item, onConnect: () => onConnectDevice(item.id)),
+          ),
       ],
     );
   }

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'dr/theme.dart';
+import 'dr/widgets.dart' show DrNotice;
 import 'dr/screens/shell.dart';
 import 'dr/screens/home_view.dart';
 import 'dr/screens/devices_view.dart';
@@ -31,6 +32,8 @@ class _PreviewAppState extends State<PreviewApp> {
   late bool _dark;
   late bool _incoming;
   late bool _cm;
+  late double _w, _h;
+  late bool _notice;
   final _id = TextEditingController();
   int _settingsSection = 1;
   final Map<String, bool> _toggles = {
@@ -52,6 +55,9 @@ class _PreviewAppState extends State<PreviewApp> {
     _incoming = q['screen'] == 'incoming';
     _cm = q['screen'] == 'cm';
     _dark = q['dark'] == '1';
+    _w = double.tryParse(q['w'] ?? '') ?? 1200;
+    _h = double.tryParse(q['h'] ?? '') ?? 760;
+    _notice = q['notice'] == '1';
   }
 
   @override
@@ -80,8 +86,8 @@ class _PreviewAppState extends State<PreviewApp> {
               onAllow: () {}, onDecline: () {})),
           )) : Center(
             child: Container(
-              width: 1200,
-              height: 760,
+              width: _w,
+              height: _h,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: c.bg,
@@ -135,6 +141,16 @@ class _PreviewAppState extends State<PreviewApp> {
       case DrTab.home:
         return DrHomeView(
           data: const DrHomeData(myId: '318552904', password: 'k7mq2x', recent: _recent),
+          banner: _notice
+              ? const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: DrNotice(
+                      title: 'Permissions',
+                      message: 'In order to access your Desktop remotely, you need to grant DigitalRViewer "Screen Recording" permissions.',
+                      actionLabel: 'Configure',
+                      onAction: _noop),
+                )
+              : null,
           idController: _id,
           onCopyCredentials: () {},
           onNewPassword: () {},
@@ -192,3 +208,5 @@ class _TrafficLights extends StatelessWidget {
     return Row(children: [dot(), const SizedBox(width: 8), dot(), const SizedBox(width: 8), dot()]);
   }
 }
+
+void _noop() {}

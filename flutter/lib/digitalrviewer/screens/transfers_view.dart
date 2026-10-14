@@ -36,11 +36,9 @@ class _DrTransfersViewState extends State<DrTransfersView> {
           const DrPageHeading('File transfers',
               subtitle: 'Send files to any of your devices, or get files from them.'),
           const SizedBox(height: 22),
-          SizedBox(
-            height: 420,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          LayoutBuilder(builder: (context, box) {
+            final sideBySide = box.maxWidth >= 760;
+            final panels = [
                 Expanded(
                   flex: 92,
                   child: Container(
@@ -104,7 +102,7 @@ class _DrTransfersViewState extends State<DrTransfersView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 20),
+                SizedBox(width: sideBySide ? 20 : 0, height: sideBySide ? 0 : 16),
                 Expanded(
                   flex: 108,
                   child: DrCard(
@@ -173,9 +171,18 @@ class _DrTransfersViewState extends State<DrTransfersView> {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
+            ];
+            return SizedBox(
+              height: sideBySide ? 420 : 820,
+              child: sideBySide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: panels)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: panels),
+            );
+          }),
         ],
       ),
     );

@@ -29,7 +29,8 @@ import 'mobile/pages/home_page.dart';
 import 'mobile/pages/server_page.dart';
 import 'mobile/widgets/deploy_dialog.dart';
 import 'models/platform_model.dart';
-import 'digitalrviewer/app/dr_main_window.dart' show drAppTheme;
+import 'digitalrviewer/app/dr_main_window.dart'
+    show drAppTheme, drEnsureMainWindowSize;
 
 /// Basic window and launch properties.
 int? kWindowId;
@@ -156,6 +157,7 @@ void runMainApp(bool startService) async {
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     // Restore the location of the main window before window hide or show.
     await restoreWindowPosition(WindowType.Main);
+    await drEnsureMainWindowSize();
     // Check the startup argument, if we successfully handle the argument, we keep the main window hidden.
     final handledByUniLinks = await initUniLinks();
     debugPrint("handled by uni links: $handledByUniLinks");
