@@ -2,11 +2,13 @@
 import 'package:flutter/material.dart';
 
 import 'dr/theme.dart';
-import 'dr/widgets.dart' show DrNotice;
+import 'dr/widgets.dart' show DrNotice, DrButton;
 import 'dr/screens/shell.dart';
 import 'dr/screens/home_view.dart';
 import 'dr/screens/add_device_dialog.dart';
 import 'dr/screens/devices_view.dart';
+import 'dr/screens/network_switch.dart';
+import 'dr/screens/rustdesk_invite_dialog.dart';
 import 'dr/screens/save_prompt.dart';
 import 'dr/screens/incoming_view.dart';
 import 'dr/screens/settings_view.dart';
@@ -21,6 +23,7 @@ const _recent = [
   DrDeviceItem(id: '305118642', name: 'Render Server', online: true, platform: 'Linux', lastSeen: 'Favourite', favourite: true, recent: true),
   DrDeviceItem(id: '640227019', name: 'Front Desk', online: true, platform: '', lastSeen: 'Saved', saved: true, note: 'Reception — ask Priya'),
   DrDeviceItem(id: '918450332', name: 'Home iMac', online: false, platform: 'macOS', lastSeen: 'Recent', recent: true),
+  DrDeviceItem(id: '1402567788@public', name: 'Client laptop', online: true, platform: 'Windows', lastSeen: 'Saved', saved: true, recent: true, note: 'Uses the RustDesk app'),
 ];
 
 class PreviewApp extends StatefulWidget {
@@ -62,6 +65,14 @@ class _PreviewAppState extends State<PreviewApp> {
     _notice = q['notice'] == '1';
     _signedIn = q['signedin'] == '1';
     _prompt = q['prompt'] == '1';
+    _network = q['net'] == 'rustdesk' ? DrNetwork.rustdesk : DrNetwork.ours;
+    _hint = q['hint'] == '1';
+    if (q['invite'] == '1') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => drShowRustDeskInviteDialog(
+          _navKey.currentState!.overlay!.context,
+          code: drRustDeskInviteCode('318552904', '163.128.34.42', 'ihG8O4mHHiAvvNjVbt02xFUm3umqBfgQFQlyIlyosLQ='),
+          password: 'k7mq2x'));
+    }
     if (q['dialog'] == '1') {
       WidgetsBinding.instance.addPostFrameCallback((_) => _addDevice(id: q['id'] ?? ''));
     }
@@ -69,6 +80,8 @@ class _PreviewAppState extends State<PreviewApp> {
 
   late bool _signedIn;
   late bool _prompt;
+  late DrNetwork _network;
+  late bool _hint;
   final _navKey = GlobalKey<NavigatorState>();
 
   Future<void> _addDevice({String id = ''}) => drShowAddDeviceDialog(
@@ -196,6 +209,12 @@ class _PreviewAppState extends State<PreviewApp> {
           onConnect: (_) {},
           onConnectDevice: (_) {},
           onSeeAll: () => setState(() => _tab = DrTab.devices),
+          network: _network,
+          onNetwork: (n) => setState(() => _network = n),
+          onRustDeskInvite: () => drShowRustDeskInviteDialog(context,
+              code: drRustDeskInviteCode('318552904', '163.128.34.42', 'ihG8O4mHHiAvvNjVbt02xFUm3umqBfgQFQlyIlyosLQ='),
+              password: 'k7mq2x'),
+          connectHint: _hint ? _HintPreview(onTap: () => setState(() => _hint = false)) : null,
         );
       case DrTab.devices:
         return DrDevicesView(
@@ -253,3 +272,28 @@ class _TrafficLights extends StatelessWidget {
 }
 
 void _noop() {}
+
+class _HintPreview extends StatelessWidget {
+  final VoidCallback onTap;
+  const _HintPreview({required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: c.accent,
+        border: Border.all(color: c.accentBorder),
+        borderRadius: BorderRadius.circular(DrRadius.tile),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Text('140 256 778 8 isn’t on Digital R Viewer, but a RustDesk app with this ID is online.',
+              style: DrText.sans(13, c.accentText, height: 1.4)),
+        ),
+        const SizedBox(width: 10),
+        DrButton('Connect via RustDesk', height: 36, fontSize: 13, onPressed: onTap),
+      ]),
+    );
+  }
+}

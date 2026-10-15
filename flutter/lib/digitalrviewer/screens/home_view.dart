@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets.dart';
+import 'network_switch.dart';
 import 'shell.dart';
 
 class DrDeviceItem {
@@ -59,6 +60,16 @@ class DrHomeView extends StatelessWidget {
   /// Notices shown above the cards (permissions, install prompts, errors).
   final Widget? banner;
 
+  /// Network switch on the Connect card (hidden when [onNetwork] is null).
+  final DrNetwork network;
+  final ValueChanged<DrNetwork>? onNetwork;
+
+  /// Shown under the ID field (e.g. "Not found — try as a RustDesk user").
+  final Widget? connectHint;
+
+  /// "For RustDesk users" link on the share card.
+  final VoidCallback? onRustDeskInvite;
+
   const DrHomeView(
       {super.key,
       required this.data,
@@ -70,7 +81,11 @@ class DrHomeView extends StatelessWidget {
       required this.onConnectDevice,
       required this.onSeeAll,
       this.idFieldOverride,
-      this.banner});
+      this.banner,
+      this.network = DrNetwork.ours,
+      this.onNetwork,
+      this.connectHint,
+      this.onRustDeskInvite});
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +224,13 @@ class DrHomeView extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   onPressed: data.canRefreshPassword ? onNewPassword : null),
           ]),
+          if (onRustDeskInvite != null) ...[
+            const SizedBox(height: 16),
+            DrLink('Helping someone who uses the RustDesk app? Get a code',
+                onTap: onRustDeskInvite!,
+                weight: FontWeight.w500,
+                color: c.accentTextMuted),
+          ],
         ],
       ),
     );
@@ -238,7 +260,21 @@ class DrHomeView extends StatelessWidget {
           Text('Reach another device', style: DrText.serif(32, c.text)),
           if (fill) const Spacer(),
           const SizedBox(height: 24),
-          Text('Device ID', style: DrText.sans(13, c.textMuted)),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                  network == DrNetwork.rustdesk
+                      ? 'RustDesk ID'
+                      : 'Device ID',
+                  style: DrText.sans(13, c.textMuted)),
+              if (onNetwork != null)
+                DrNetworkSwitch(value: network, onChanged: onNetwork!),
+            ],
+          ),
           const SizedBox(height: 8),
           idFieldOverride ??
               DrPillField(
@@ -249,6 +285,10 @@ class DrHomeView extends StatelessWidget {
                 semanticLabel: 'Device ID',
                 onSubmitted: onConnect,
               ),
+          if (connectHint != null) ...[
+            const SizedBox(height: 10),
+            connectHint!,
+          ],
           const SizedBox(height: 12),
           DrButton('Connect',
               height: 50,
@@ -298,7 +338,7 @@ class _DeviceTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: DrText.sans(15, c.text, weight: FontWeight.w600)),
           const SizedBox(height: 3),
-          Text(drFormatId(item.id),
+          DrIdLabel(item.id,
               style: DrText.sans(13, c.textSubtle, tabular: true)),
           const SizedBox(height: 14),
           Row(children: [

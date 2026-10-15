@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets.dart';
+import 'network_switch.dart';
 
 enum DrIdStatus { online, offline, invalid }
 
@@ -62,7 +63,8 @@ class DrAddDeviceDialog extends StatefulWidget {
 }
 
 class _DrAddDeviceDialogState extends State<DrAddDeviceDialog> {
-  late final _id = TextEditingController(text: drFormatId(widget.id));
+  late final _id = TextEditingController(text: drDisplayId(widget.id));
+  late DrNetwork _network = drNetworkOf(widget.id);
   late final _name = TextEditingController(text: widget.name);
   late final _note = TextEditingController(text: widget.note);
   DrIdStatus? _status;
@@ -71,7 +73,11 @@ class _DrAddDeviceDialogState extends State<DrAddDeviceDialog> {
   bool _saving = false;
   String? _error;
 
-  String get _rawId => _id.text.replaceAll(RegExp(r'\s'), '');
+  /// Full ID including the network suffix, e.g. "123456789@public".
+  String get _rawId {
+    final bare = _id.text.replaceAll(RegExp(r'\s'), '');
+    return bare.isEmpty ? '' : drIdOnNetwork(bare, _network);
+  }
 
   @override
   void initState() {
@@ -150,10 +156,25 @@ class _DrAddDeviceDialogState extends State<DrAddDeviceDialog> {
                       : 'Enter the ID shown on the other computer.',
                   style: DrText.sans(14, c.textMuted)),
               const SizedBox(height: 24),
-              Text('Device ID', style: label),
+              if (!widget.editing) ...[
+                Text('Which app does the device use?', style: label),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: DrNetworkSwitch(
+                      value: _network,
+                      onChanged: (n) => setState(() {
+                            _network = n;
+                            _error = null;
+                          })),
+                ),
+                const SizedBox(height: 18),
+              ],
+              Text(_network == DrNetwork.rustdesk ? 'RustDesk ID' : 'Device ID',
+                  style: label),
               const SizedBox(height: 8),
               if (widget.editing)
-                Text(drFormatId(widget.id),
+                DrIdLabel(widget.id,
                     style: DrText.sans(20, c.text,
                         weight: FontWeight.w600, tabular: true))
               else
@@ -254,7 +275,9 @@ class _DrAddDeviceDialogState extends State<DrAddDeviceDialog> {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-                'Not reachable right now — it may be switched off, or the ID may be wrong. You can still save it.',
+                _network == DrNetwork.ours
+                    ? 'Not reachable on Digital R Viewer — it may be switched off, the ID may be wrong, or it may use the RustDesk app (switch above). You can still save it.'
+                    : 'Not reachable on the RustDesk network right now — it may be switched off, or the ID may be wrong. You can still save it.',
                 style: DrText.sans(13, c.textMuted, height: 1.4)),
           ),
         ]);

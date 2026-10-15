@@ -40,6 +40,8 @@ import 'desktop/pages/view_camera_page.dart' as desktop_view_camera;
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'models/model.dart';
 import 'models/platform_model.dart';
+import 'digitalrviewer/app/dr_devices.dart' show drTabLabel;
+import 'digitalrviewer/app/dr_main_window.dart' show kDrUi;
 
 import 'package:flutter_hbb/native/win32.dart'
     if (dart.library.html) 'package:flutter_hbb/web/win32.dart';
@@ -3299,6 +3301,7 @@ Widget buildErrorBanner(BuildContext context,
 }
 
 String getDesktopTabLabel(String peerId, String alias) {
+  if (kDrUi && peerId.contains('@')) return drTabLabel(peerId, alias);
   String label = alias.isEmpty ? peerId : alias;
   try {
     String peer = bind.mainGetPeerSync(id: peerId);

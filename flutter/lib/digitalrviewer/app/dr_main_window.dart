@@ -21,16 +21,24 @@ import 'package:window_manager/window_manager.dart';
 import '../screens/add_device_dialog.dart';
 import '../screens/devices_view.dart';
 import '../screens/home_view.dart';
+import '../screens/network_switch.dart';
+import '../screens/rustdesk_invite_dialog.dart';
 import '../screens/save_prompt.dart';
 import '../screens/shell.dart';
 import '../screens/transfers_view.dart';
 import '../theme.dart';
-import '../widgets.dart' show drFormatId, DrInitials;
+import '../widgets.dart' show drFormatId, DrInitials, DrButton;
 import 'dr_devices.dart';
 import 'dr_update.dart';
 
 /// Master switch for the DigitalRViewer UI.
 const bool kDrUi = true;
+
+/// Fallbacks for the RustDesk-user invite code; keep in step with src/branding.rs
+/// (normally the locked options supply these).
+const String kDrIdServer = '163.128.34.42';
+const String kDrServerKey = 'ihG8O4mHHiAvvNjVbt02xFUm3umqBfgQFQlyIlyosLQ=';
+const String _kNetworkKey = 'dr-connect-network';
 
 /// Wraps one of RustDesk's ThemeData so stock widgets pick up the design system.
 /// Desktop only: the mobile UI has not been redesigned.
@@ -180,8 +188,101 @@ class _DrHomePaneState extends State<DrHomePane> {
   final _idController = IDTextEditingController();
   final _idFocus = FocusNode();
   final _store = DrDevicesStore.instance;
+  DrNetwork _network = DrNetwork.ours;
+
+  /// Set when an ID wasn't found on our network but is online on RustDesk's.
+  String? _hintId;
+  bool _checking = false;
+
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  void _setNetwork(DrNetwork n) {
+    setState(() {
+      _network = n;
+      _hintId = null;
+    });
+    bind.mainSetLocalOption(
+        key: _kNetworkKey, value: n == DrNetwork.rustdesk ? 'rustdesk' : '');
+  }
+
+  /// connect() writes the dialled ID ("123@public") back into the field: show the bare ID and
+  /// move the switch instead.
+  void _onIdChanged() {
+    final text = _idController.text.replaceAll(' ', '');
+    if (drIsRustDeskId(text)) {
+      _idController.id = drBareId(text);
+      if (_network != DrNetwork.rustdesk) _setNetwork(DrNetwork.rustdesk);
+    } else if (_hintId != null && drBareId(_hintId!) != text) {
+      setState(() => _hintId = null);
+    }
+  }
+
+  Future<void> _connect() async {
+    final typed = _idController.id.replaceAll(' ', '');
+    if (typed.isEmpty || _checking) return;
+    // A full "id@server" typed by hand is dialled as is.
+    final id = typed.contains('@') ? typed : drIdOnNetwork(typed, _network);
+    // Unknown plain ID on our network: make sure it's here before opening a session window,
+    // and point to the RustDesk network when that's where it is.
+    if (!id.contains('@') && _store.find(id) == null) {
+      setState(() => _checking = true);
+      final here = await _store.check(id);
+      var elsewhere = DrIdStatus.offline;
+      if (here == DrIdStatus.offline) {
+        elsewhere = await _store.check(drIdOnNetwork(id, DrNetwork.rustdesk));
+      }
+      if (!mounted) return;
+      setState(() => _checking = false);
+      if (here == DrIdStatus.offline && elsewhere == DrIdStatus.online) {
+        setState(() => _hintId = id);
+        return;
+      }
+    }
+    if (mounted) connect(context, id);
+  }
+
+  Widget? _connectHint(DrColors c) {
+    if (_checking) {
+      return Text('Looking for the device…', style: DrText.sans(13, c.textSubtle));
+    }
+    final id = _hintId;
+    if (id == null) return null;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: c.accent,
+        border: Border.all(color: c.accentBorder),
+        borderRadius: BorderRadius.circular(DrRadius.tile),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Text(
+              '${drFormatId(id)} isn’t on Digital R Viewer, but a RustDesk app with this ID is online.',
+              style: DrText.sans(13, c.accentText, height: 1.4)),
+        ),
+        const SizedBox(width: 10),
+        DrButton('Connect via RustDesk',
+            height: 36,
+            fontSize: 13,
+            onPressed: () {
+              _setNetwork(DrNetwork.rustdesk);
+              connect(context, drIdOnNetwork(id, DrNetwork.rustdesk));
+            }),
+      ]),
+    );
+  }
+
+  void _showInvite(String myId, String? password) {
+    var server = bind.mainGetOptionSync(key: 'custom-rendezvous-server').trim();
+    var key = bind.mainGetOptionSync(key: 'key').trim();
+    if (server.isEmpty) server = kDrIdServer;
+    if (key.isEmpty) key = kDrServerKey;
+    drShowRustDeskInviteDialog(context,
+        code: drRustDeskInviteCode(myId, server, key),
+        password: password,
+        onCopied: () => showToast(translate('Copied')));
   }
 
   @override
@@ -191,6 +292,10 @@ class _DrHomePaneState extends State<DrHomePane> {
     if (!Get.isRegistered<IDTextEditingController>()) {
       Get.put<IDTextEditingController>(_idController);
     }
+    if (bind.mainGetLocalOption(key: _kNetworkKey) == 'rustdesk') {
+      _network = DrNetwork.rustdesk;
+    }
+    _idController.addListener(_onIdChanged);
     bind.mainGetLastRemoteId().then((id) {
       if (mounted && _idController.text.isEmpty) _idController.id = id;
     });
@@ -201,6 +306,7 @@ class _DrHomePaneState extends State<DrHomePane> {
   @override
   void dispose() {
     _store.removeListener(_changed);
+    _idController.removeListener(_onIdChanged);
     if (Get.isRegistered<IDTextEditingController>() &&
         Get.find<IDTextEditingController>() == _idController) {
       Get.delete<IDTextEditingController>();
@@ -239,9 +345,15 @@ class _DrHomePaneState extends State<DrHomePane> {
                 showToast(translate('Copied'));
               },
               onNewPassword: () => bind.mainUpdateTemporaryPassword(),
-              onConnect: (_) => connect(context, _idController.id),
+              onConnect: (_) => _connect(),
               onConnectDevice: (id) => connect(context, id),
               onSeeAll: () => drShowTab(DrTab.devices),
+              network: _network,
+              onNetwork: _setNetwork,
+              connectHint: _connectHint(c),
+              onRustDeskInvite: outgoingOnly || myId.isEmpty
+                  ? null
+                  : () => _showInvite(myId, password),
             ),
           ),
           Container(
@@ -295,7 +407,7 @@ Future<void> drAddDevice(BuildContext context,
     context,
     signedIn: store.signedIn,
     id: edit?.id ?? id,
-    name: edit == null || edit.name == drFormatId(edit.id) ? '' : edit.name,
+    name: edit == null || edit.name == drDisplayId(edit.id) ? '' : edit.name,
     note: edit?.note ?? '',
     editing: edit != null,
     onCheck: store.check,
@@ -344,7 +456,7 @@ class _DrDevicesPaneState extends State<DrDevicesPane>
         switch (v) {
           case 'save':
             await store.save(item.id,
-                name: item.name == drFormatId(item.id) ? '' : item.name);
+                name: item.name == drDisplayId(item.id) ? '' : item.name);
             showToast('Device saved');
             break;
           case 'edit':

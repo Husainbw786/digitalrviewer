@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets.dart';
+import 'network_switch.dart';
 import 'home_view.dart';
 import 'shell.dart';
 
@@ -146,7 +147,7 @@ class _DrTransfersViewState extends State<DrTransfersView> {
                                                   style: DrText.sans(
                                                       14, c.text,
                                                       weight: FontWeight.w600)),
-                                              Text(drFormatId(d.id),
+                                              Text(drDisplayId(d.id),
                                                   style: DrText.sans(
                                                       12, c.textSubtle,
                                                       tabular: true)),

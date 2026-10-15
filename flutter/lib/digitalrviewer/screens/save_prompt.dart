@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets.dart';
+import 'network_switch.dart';
 
 class DrSavePromptCard extends StatelessWidget {
   final String id;
@@ -25,7 +26,11 @@ class DrSavePromptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = DrColors.of(context);
-    final detail = [drFormatId(id), if (platform.isNotEmpty) platform].join(' · ');
+    final detail = [
+      drDisplayId(id),
+      if (drIsRustDeskId(id)) 'RustDesk app',
+      if (platform.isNotEmpty) platform
+    ].join(' · ');
     return Container(
       width: 380,
       padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),

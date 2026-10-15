@@ -21,7 +21,7 @@ import 'package:get/get.dart';
 
 import '../screens/add_device_dialog.dart' show DrIdStatus;
 import '../screens/home_view.dart' show DrDeviceItem;
-import '../widgets.dart' show drFormatId;
+import '../screens/network_switch.dart' show drDisplayId;
 
 const _kSavedKey = 'dr-saved-devices';
 const _kDismissedKey = 'dr-save-prompt-dismissed';
@@ -236,7 +236,7 @@ class DrDevicesStore extends ChangeNotifier {
             ? alias
             : peer != null
                 ? drPeerName(peer)
-                : drFormatId(id),
+                : drDisplayId(id),
         online: _online[id] ?? peer?.online ?? false,
         platform: drPlatformLabel(peer?.platform ?? ''),
         lastSeen: isSaved
@@ -395,7 +395,7 @@ class DrDevicesStore extends ChangeNotifier {
   void onConnected(String id, {String hostname = '', String platform = ''}) {
     bind.mainLoadRecentPeers();
     if (id.isEmpty || isSaved(id) || _dismissed.contains(id)) return;
-    final name = hostname.isNotEmpty ? hostname : drFormatId(id);
+    final name = hostname.isNotEmpty ? hostname : drDisplayId(id);
     _prompt = DrSavePrompt(id, name, drPlatformLabel(platform));
     notifyListeners();
   }
@@ -443,15 +443,20 @@ class DrDevicesStore extends ChangeNotifier {
 
 String drNormalizeId(String id) => id.replaceAll(RegExp(r'\s'), '');
 
-/// RustDesk IDs are 6+ digits, or a custom ID (letter first, letters/digits/_-, 6–16 chars).
-bool drIsValidId(String id) =>
-    RegExp(r'^\d{6,}$').hasMatch(id) ||
-    RegExp(r'^[A-Za-z][A-Za-z0-9_-]{5,15}$').hasMatch(id);
+/// RustDesk IDs are 6+ digits, or a custom ID (letter first, letters/digits/_-, 6–16 chars),
+/// optionally followed by "@server" ("@public" = RustDesk's public network).
+bool drIsValidId(String id) {
+  final at = id.indexOf('@');
+  final bare = at < 0 ? id : id.substring(0, at);
+  if (at >= 0 && at == id.length - 1) return false;
+  return RegExp(r'^\d{6,}$').hasMatch(bare) ||
+      RegExp(r'^[A-Za-z][A-Za-z0-9_-]{5,15}$').hasMatch(bare);
+}
 
 String drPeerName(Peer p) {
   if (p.alias.isNotEmpty) return p.alias;
   if (p.hostname.isNotEmpty) return p.hostname;
-  return drFormatId(p.id);
+  return drDisplayId(p.id);
 }
 
 String drPlatformLabel(String platform) {
@@ -462,6 +467,22 @@ String drPlatformLabel(String platform) {
   if (p.contains('android')) return 'Android';
   if (p.contains('ios')) return 'iOS';
   return platform;
+}
+
+/// Tab / window title for an "id@server" peer: "Office PC · RustDesk" instead of
+/// "123456789@public@OFFICE-PC".
+String drTabLabel(String peerId, String alias) {
+  var name = alias;
+  if (name.isEmpty) {
+    try {
+      final config = jsonDecode(bind.mainGetPeerSync(id: peerId));
+      final hostname = config['info']?['hostname'];
+      if (hostname is String) name = hostname;
+    } catch (_) {}
+  }
+  if (name.isEmpty) name = drDisplayId(peerId);
+  final server = peerId.split('@').skip(1).join('@').split('?').first;
+  return '$name · ${server == 'public' ? 'RustDesk' : server}';
 }
 
 /// Hook for FfiModel's 'peer_info' event (a remote-desktop session logged in). Runs in the

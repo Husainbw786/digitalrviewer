@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'home_view.dart';
+import 'network_switch.dart';
 import 'shell.dart';
 
 enum DrDeviceFilter { all, online, offline }
@@ -64,13 +65,13 @@ class _DrDevicesViewState extends State<DrDevicesView> {
       if (_filter == DrDeviceFilter.offline && d.online) return false;
       if (q.isEmpty) return true;
       return d.name.toLowerCase().replaceAll(' ', '').contains(q) ||
-          d.id.replaceAll(' ', '').contains(q) ||
+          drBareId(d.id).contains(q) ||
           d.note.toLowerCase().replaceAll(' ', '').contains(q);
     }).toList();
     // A full ID that isn't listed yet: offer to check and save it.
     final unknownId = widget.onAddId != null &&
             RegExp(r'^\d{6,}$').hasMatch(q) &&
-            !all.any((d) => d.id == q)
+            !all.any((d) => drBareId(d.id) == q)
         ? q
         : null;
 
@@ -286,7 +287,9 @@ class _DrDevicesViewState extends State<DrDevicesView> {
             ),
           ),
         ]),
-        Text(drFormatId(d.id), style: muted),
+        Align(
+            alignment: Alignment.centerLeft,
+            child: DrIdLabel(d.id, style: muted, stacked: true)),
         Text(d.platform.isEmpty ? '—' : d.platform, style: muted),
         Align(alignment: Alignment.centerLeft, child: _listTag(c, d)),
         DrStatusDot(online: d.online, fontSize: 13),

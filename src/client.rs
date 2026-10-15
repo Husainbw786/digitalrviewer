@@ -5324,9 +5324,40 @@ pub mod peer_online {
         }
     }
 
-    async fn create_online_stream() -> ResultType<Stream> {
-        let (rendezvous_server, _servers, _contained) =
-            crate::get_rendezvous_server(READ_TIMEOUT).await;
+    /// DigitalRViewer: the rendezvous server an ID lives on. `None` = our own server;
+    /// `id@public` = RustDesk's public server; `id@host[:port][?key=…]` = that host.
+    fn foreign_rendezvous_server(id: &str) -> Option<String> {
+        let (_, server) = id.split_once('@')?;
+        let server = server.split('?').next().unwrap_or_default().trim();
+        if server.is_empty() {
+            return None;
+        }
+        let server = if server == super::PUBLIC_SERVER {
+            hbb_common::config::RENDEZVOUS_SERVERS[0]
+        } else {
+            server
+        };
+        Some(crate::check_port(server, hbb_common::config::RENDEZVOUS_PORT))
+    }
+
+    /// Groups ids by rendezvous server (`None` = ours), keeping the full ids.
+    fn group_ids_by_server(ids: &[String]) -> Vec<(Option<String>, Vec<String>)> {
+        let mut groups: Vec<(Option<String>, Vec<String>)> = Vec::new();
+        for id in ids {
+            let server = foreign_rendezvous_server(id);
+            match groups.iter_mut().find(|(s, _)| *s == server) {
+                Some((_, v)) => v.push(id.clone()),
+                None => groups.push((server, vec![id.clone()])),
+            }
+        }
+        groups
+    }
+
+    async fn create_online_stream(server: Option<&str>) -> ResultType<Stream> {
+        let rendezvous_server = match server {
+            Some(s) => s.to_owned(),
+            None => crate::get_rendezvous_server(READ_TIMEOUT).await.0,
+        };
         let tmp: Vec<&str> = rendezvous_server.split(":").collect();
         if tmp.len() != 2 {
             bail!("Invalid server address: {}", rendezvous_server);
@@ -5339,18 +5370,56 @@ pub mod peer_online {
         connect_tcp(online_server, CONNECT_TIMEOUT).await
     }
 
+    /// Queries each rendezvous server about its own ids in parallel (DigitalRViewer: ids on
+    /// RustDesk's public network or another server are asked there, not on ours).
     async fn query_online_states_(
         ids: &Vec<String>,
         timeout: std::time::Duration,
     ) -> ResultType<(Vec<String>, Vec<String>)> {
+        let groups = group_ids_by_server(ids);
+        if groups.len() <= 1 && groups.first().map_or(true, |(s, _)| s.is_none()) {
+            return query_online_states_on(None, ids, ids, timeout).await;
+        }
+        let queries = groups.iter().map(|(server, full)| {
+            let bare: Vec<String> = full
+                .iter()
+                .map(|id| id.split('@').next().unwrap_or_default().to_owned())
+                .collect();
+            async move {
+                match query_online_states_on(server.as_deref(), &bare, full, timeout).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::debug!("query onlines on {:?}: {e}", server);
+                        (vec![], full.clone())
+                    }
+                }
+            }
+        });
+        let mut onlines = Vec::new();
+        let mut offlines = Vec::new();
+        for (on, off) in hbb_common::futures::future::join_all(queries).await {
+            onlines.extend(on);
+            offlines.extend(off);
+        }
+        Ok((onlines, offlines))
+    }
+
+    /// Asks one server about `query_ids`; results are reported with the matching `report_ids`.
+    async fn query_online_states_on(
+        server: Option<&str>,
+        query_ids: &Vec<String>,
+        report_ids: &Vec<String>,
+        timeout: std::time::Duration,
+    ) -> ResultType<(Vec<String>, Vec<String>)> {
+        let ids = report_ids;
         let mut msg_out = RendezvousMessage::new();
         msg_out.set_online_request(OnlineRequest {
             id: Config::get_id(),
-            peers: ids.clone(),
+            peers: query_ids.clone(),
             ..Default::default()
         });
 
-        let mut socket = match create_online_stream().await {
+        let mut socket = match create_online_stream(server).await {
             Ok(s) => s,
             Err(e) => {
                 log::debug!("Failed to create peers online stream, {e}");
@@ -5407,6 +5476,36 @@ pub mod peer_online {
         }
 
         bail!("Failed to query online states, no online response");
+    }
+
+    #[cfg(test)]
+    mod dr_tests {
+        use super::{foreign_rendezvous_server, group_ids_by_server};
+
+        #[test]
+        fn groups_ids_by_rendezvous_server() {
+            assert_eq!(foreign_rendezvous_server("123456789"), None);
+            assert_eq!(
+                foreign_rendezvous_server("123456789@public").as_deref(),
+                Some("rs-ny.rustdesk.com:21116")
+            );
+            assert_eq!(
+                foreign_rendezvous_server("1@example.com:21200?key=abc").as_deref(),
+                Some("example.com:21200")
+            );
+            assert_eq!(
+                foreign_rendezvous_server("1@example.com?key=abc").as_deref(),
+                Some("example.com:21116")
+            );
+            let ids: Vec<String> = ["1", "2@public", "3", "4@public"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+            let g = group_ids_by_server(&ids);
+            assert_eq!(g.len(), 2);
+            assert_eq!(g[0], (None, vec!["1".to_owned(), "3".to_owned()]));
+            assert_eq!(g[1].1, vec!["2@public".to_owned(), "4@public".to_owned()]);
+        }
     }
 
     #[cfg(test)]

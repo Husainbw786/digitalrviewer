@@ -70,7 +70,10 @@ class DrIncomingRequestCard extends StatelessWidget {
                   style: DrText.sans(13, c.accentTextMuted,
                       weight: FontWeight.w600)),
               const SizedBox(height: 3),
-              Text('ID ${drFormatId(peerId)}',
+              Text(
+                  peerId.contains('@')
+                      ? 'ID ${drFormatId(peerId.split('@').first)} · RustDesk app'
+                      : 'ID ${drFormatId(peerId)}',
                   style: DrText.sans(13, c.textSubtle, tabular: true)),
             ]),
           ]),
