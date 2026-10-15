@@ -38,6 +38,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:vector_math/vector_math.dart' show Vector2;
 
 import '../common.dart';
+import '../digitalrviewer/app/dr_devices.dart' show drOnSessionPeerInfo;
+import '../digitalrviewer/app/dr_main_window.dart' show kDrUi;
 import '../utils/image.dart' as img;
 import '../common/widgets/dialog.dart';
 import 'input_model.dart';
@@ -338,6 +340,9 @@ class FfiModel with ChangeNotifier {
         handleMultipleWindowsSession(evt, sessionId, peerId);
       } else if (name == 'peer_info') {
         handlePeerInfo(evt, peerId, false);
+        if (kDrUi && parent.target?.connType == ConnType.defaultConn) {
+          drOnSessionPeerInfo(peerId, evt);
+        }
       } else if (name == 'sync_peer_info') {
         handleSyncPeerInfo(evt, sessionId, peerId);
       } else if (name == 'sync_platform_additions') {

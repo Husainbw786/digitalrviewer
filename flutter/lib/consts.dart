@@ -54,6 +54,8 @@ const String kAppTypeDesktopTerminal = "terminal";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
 const String kWindowRefreshCurrentUser = "refresh_current_user";
+// DigitalRViewer: a session window reports a successful login (save-device prompt).
+const String kWindowDrPeerConnected = "dr_peer_connected";
 const String kWindowGetScreenList = "get_screen_list";
 // This method is not used, maybe it can be removed.
 const String kWindowDisableGrabKeyboard = "disable_grab_keyboard";

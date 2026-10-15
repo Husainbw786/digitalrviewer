@@ -24,6 +24,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
 import '../widgets/button.dart';
+import '../../digitalrviewer/app/dr_devices.dart' show drHandlePeerConnectedCall;
 import '../../digitalrviewer/app/dr_main_window.dart';
 import '../../digitalrviewer/widgets.dart' show DrNotice;
 
@@ -803,6 +804,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         windowOnTop(null);
       } else if (call.method == kWindowRefreshCurrentUser) {
         gFFI.userModel.refreshCurrentUser();
+      } else if (call.method == kWindowDrPeerConnected) {
+        drHandlePeerConnectedCall(call.arguments);
       } else if (call.method == kWindowGetScreenList) {
         return jsonEncode(
             (await window_size.getScreenList()).map(screenToMap).toList());

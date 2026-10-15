@@ -11,12 +11,20 @@ class DrDeviceItem {
   final bool online;
   final String platform; // "macOS", "Windows", "Linux", "Android", ""
   final String lastSeen; // human text, may be empty
+  final bool saved; // in "My devices" (this computer and/or the account)
+  final bool favourite;
+  final bool recent; // has a session history on this computer
+  final String note;
   const DrDeviceItem(
       {required this.id,
       required this.name,
       required this.online,
       this.platform = '',
-      this.lastSeen = ''});
+      this.lastSeen = '',
+      this.saved = false,
+      this.favourite = false,
+      this.recent = false,
+      this.note = ''});
 }
 
 class DrHomeData {

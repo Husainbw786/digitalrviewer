@@ -1,17 +1,16 @@
 // App-side adapters: connect the DigitalRViewer screens (../screens, Flutter-only) to
 // RustDesk's models. Existing RustDesk pages call into this file through one-line hooks
 // guarded by [kDrUi]; with kDrUi = false the stock RustDesk UI is used unchanged.
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
+import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
-import 'package:flutter_hbb/models/peer_model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -19,12 +18,15 @@ import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../screens/add_device_dialog.dart';
 import '../screens/devices_view.dart';
 import '../screens/home_view.dart';
+import '../screens/save_prompt.dart';
 import '../screens/shell.dart';
 import '../screens/transfers_view.dart';
 import '../theme.dart';
-import '../widgets.dart' show drFormatId;
+import '../widgets.dart' show drFormatId, DrInitials;
+import 'dr_devices.dart';
 import 'dr_update.dart';
 
 /// Master switch for the DigitalRViewer UI.
@@ -87,9 +89,18 @@ class DrMainWindow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = DrColors.of(context);
     DrUpdater.instance.start();
+    DrDevicesStore.instance.start();
     return Scaffold(
       backgroundColor: c.bg,
-      body: Obx(() {
+      body: Stack(children: [
+        _pages(context),
+        const Positioned(right: 24, bottom: 56, child: _DrSavePromptHost()),
+      ]),
+    );
+  }
+
+  Widget _pages(BuildContext context) {
+    return Obx(() {
         final tab = _drTab.value;
         final initialSettings = _drSettingsInitial.value;
         return Column(children: [
@@ -110,8 +121,7 @@ class DrMainWindow extends StatelessWidget {
             ),
           ),
         ]);
-      }),
-    );
+      });
   }
 
   Widget _titleBar(BuildContext context, DrTab tab) {
@@ -131,7 +141,10 @@ class DrMainWindow extends StatelessWidget {
         tab: tab,
         // macOS draws the traffic lights at the top-left of the window.
         leadingInset: isMacOS ? 62 : 0,
-        actions: const DrUpdatePill(),
+        actions: const Row(mainAxisSize: MainAxisSize.min, children: [
+          DrUpdatePill(),
+          _DrAccountChip(),
+        ]),
         onTab: (t) {
           if (t == DrTab.settings) {
             if (hideSettings) return;
@@ -166,7 +179,10 @@ class DrHomePane extends StatefulWidget {
 class _DrHomePaneState extends State<DrHomePane> {
   final _idController = IDTextEditingController();
   final _idFocus = FocusNode();
-  final _recent = _PeerFeed();
+  final _store = DrDevicesStore.instance;
+  void _changed() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
@@ -178,14 +194,13 @@ class _DrHomePaneState extends State<DrHomePane> {
     bind.mainGetLastRemoteId().then((id) {
       if (mounted && _idController.text.isEmpty) _idController.id = id;
     });
-    _recent.start(onChange: () {
-      if (mounted) setState(() {});
-    });
+    _store.start();
+    _store.addListener(_changed);
   }
 
   @override
   void dispose() {
-    _recent.stop();
+    _store.removeListener(_changed);
     if (Get.isRegistered<IDTextEditingController>() &&
         Get.find<IDTextEditingController>() == _idController) {
       Get.delete<IDTextEditingController>();
@@ -212,7 +227,7 @@ class _DrHomePaneState extends State<DrHomePane> {
               data: DrHomeData(
                 myId: outgoingOnly ? '' : myId,
                 password: outgoingOnly ? null : password,
-                recent: _recent.items,
+                recent: _store.items,
               ),
               idController: _idController,
               idFocus: _idFocus,
@@ -245,72 +260,52 @@ class _DrHomePaneState extends State<DrHomePane> {
   }
 }
 
-/// Recent + favourite peers with live online status, shared by Home and Devices.
-class _PeerFeed {
-  List<DrDeviceItem> items = const [];
-  VoidCallback? _onChange;
-  Timer? _onlineTimer;
-
-  void start({required VoidCallback onChange}) {
-    _onChange = onChange;
-    gFFI.recentPeersModel.addListener(_rebuild);
-    gFFI.favoritePeersModel.addListener(_rebuild);
-    bind.mainLoadRecentPeers();
-    bind.mainLoadFavPeers();
-    _onlineTimer = Timer.periodic(const Duration(seconds: 10), (_) => _query());
-    Future.delayed(const Duration(seconds: 1), _query);
-    _rebuild();
+/// Rebuilds a widget when the device list changes.
+mixin _DrStoreListener<T extends StatefulWidget> on State<T> {
+  DrDevicesStore get store => DrDevicesStore.instance;
+  void _changed() {
+    if (mounted) setState(() {});
   }
 
-  void stop() {
-    gFFI.recentPeersModel.removeListener(_rebuild);
-    gFFI.favoritePeersModel.removeListener(_rebuild);
-    _onlineTimer?.cancel();
+  @override
+  void initState() {
+    super.initState();
+    store.start();
+    store.addListener(_changed);
   }
 
-  void _query() {
-    final ids = items.map((e) => e.id).toList();
-    if (ids.isNotEmpty) bind.queryOnlines(ids: ids);
-  }
-
-  void _rebuild() {
-    final favIds = gFFI.favoritePeersModel.peers.map((p) => p.id).toSet();
-    final seen = <String>{};
-    final out = <DrDeviceItem>[];
-    for (final p in [
-      ...gFFI.recentPeersModel.peers,
-      ...gFFI.favoritePeersModel.peers
-    ]) {
-      if (p.id.isEmpty || !seen.add(p.id)) continue;
-      out.add(DrDeviceItem(
-        id: p.id,
-        name: drPeerName(p),
-        online: p.online,
-        platform: drPlatformLabel(p.platform),
-        lastSeen: favIds.contains(p.id) ? 'Favourite' : 'Recent',
-      ));
-    }
-    final before = items.map((e) => '${e.id}${e.online}${e.name}').join();
-    final after = out.map((e) => '${e.id}${e.online}${e.name}').join();
-    items = out;
-    if (before != after) _onChange?.call();
+  @override
+  void dispose() {
+    store.removeListener(_changed);
+    super.dispose();
   }
 }
 
-String drPeerName(Peer p) {
-  if (p.alias.isNotEmpty) return p.alias;
-  if (p.hostname.isNotEmpty) return p.hostname;
-  return drFormatId(p.id);
+bool get _drAccountsEnabled => !bind.isDisableAccount();
+
+Future<void> drSignIn() async {
+  if (!_drAccountsEnabled) return;
+  await loginDialog();
 }
 
-String drPlatformLabel(String platform) {
-  final p = platform.toLowerCase();
-  if (p.contains('mac')) return 'macOS';
-  if (p.contains('win')) return 'Windows';
-  if (p.contains('linux')) return 'Linux';
-  if (p.contains('android')) return 'Android';
-  if (p.contains('ios')) return 'iOS';
-  return platform;
+Future<void> drAddDevice(BuildContext context,
+    {String id = '', DrDeviceItem? edit}) {
+  final store = DrDevicesStore.instance;
+  return drShowAddDeviceDialog(
+    context,
+    signedIn: store.signedIn,
+    id: edit?.id ?? id,
+    name: edit == null || edit.name == drFormatId(edit.id) ? '' : edit.name,
+    note: edit?.note ?? '',
+    editing: edit != null,
+    onCheck: store.check,
+    onConnect: (id) => connect(context, id),
+    onSave: (id, name, note) async {
+      final err = await store.save(id, name: name, note: note);
+      if (err == null) showToast(edit == null ? 'Device saved' : 'Device updated');
+      return err;
+    },
+  );
 }
 
 class DrDevicesPane extends StatefulWidget {
@@ -319,67 +314,145 @@ class DrDevicesPane extends StatefulWidget {
   State<DrDevicesPane> createState() => _DrDevicesPaneState();
 }
 
-class _DrDevicesPaneState extends State<DrDevicesPane> {
-  final _feed = _PeerFeed();
-
-  @override
-  void initState() {
-    super.initState();
-    _feed.start(onChange: () {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _feed.stop();
-    super.dispose();
-  }
-
+class _DrDevicesPaneState extends State<DrDevicesPane>
+    with _DrStoreListener<DrDevicesPane> {
   @override
   Widget build(BuildContext context) {
-    return DrDevicesView(
-      devices: _feed.items,
-      lastSeenHeader: 'List',
-      onConnect: (id) => connect(context, id),
-      onFiles: (id) => connect(context, id, isFileTransfer: true),
-      onAddDevice: () => drShowTab(DrTab.home),
-      menuBuilder: (item) => _menu(context, item),
-    );
+    return Obx(() {
+      // Rebuild when the account changes (the banner depends on it).
+      gFFI.userModel.userName.value;
+      return DrDevicesView(
+        devices: store.items,
+        lastSeenHeader: 'List',
+        signedIn: store.signedIn,
+        onSignIn: _drAccountsEnabled ? drSignIn : null,
+        onConnect: (id) => connect(context, id),
+        onFiles: (id) => connect(context, id, isFileTransfer: true),
+        onAddDevice: () => drAddDevice(context),
+        onAddId: (id) => drAddDevice(context, id: id),
+        menuBuilder: (item) => _menu(context, item),
+      );
+    });
   }
 
   Widget _menu(BuildContext context, DrDeviceItem item) {
     final c = DrColors.of(context);
-    final isFav = item.lastSeen == 'Favourite';
     return PopupMenuButton<String>(
       tooltip: 'More',
       icon: Icon(Icons.more_horiz, size: 18, color: c.textMuted),
       onSelected: (v) async {
         switch (v) {
-          case 'fav':
-            final favs = (await bind.mainGetFav()).toList();
-            if (isFav) {
-              favs.remove(item.id);
-            } else if (!favs.contains(item.id)) {
-              favs.add(item.id);
-            }
-            await bind.mainStoreFav(favs: favs);
-            bind.mainLoadFavPeers();
+          case 'save':
+            await store.save(item.id,
+                name: item.name == drFormatId(item.id) ? '' : item.name);
+            showToast('Device saved');
             break;
-          case 'remove':
-            await bind.mainRemovePeer(id: item.id);
-            bind.mainLoadRecentPeers();
-            bind.mainLoadFavPeers();
+          case 'edit':
+            await drAddDevice(context, edit: item);
+            break;
+          case 'fav':
+            await store.setFavourite(item.id, !item.favourite);
+            break;
+          case 'unsave':
+            await store.remove(item.id);
+            break;
+          case 'forget':
+            await store.remove(item.id, alsoForget: true);
             break;
         }
       },
       itemBuilder: (_) => [
+        if (!item.saved)
+          const PopupMenuItem(value: 'save', child: Text('Save to my devices')),
+        PopupMenuItem(
+            value: 'edit',
+            child: Text(item.saved ? 'Rename or add a note' : 'Save with a name or note')),
         PopupMenuItem(
             value: 'fav',
-            child: Text(isFav ? 'Remove from favourites' : 'Add to favourites')),
-        const PopupMenuItem(value: 'remove', child: Text('Remove from list')),
+            child: Text(item.favourite
+                ? 'Remove from favourites'
+                : 'Add to favourites')),
+        if (item.saved)
+          const PopupMenuItem(
+              value: 'unsave', child: Text('Remove from my devices')),
+        if (item.recent)
+          const PopupMenuItem(
+              value: 'forget', child: Text('Remove and forget history')),
       ],
     );
+  }
+}
+
+/// Floating "Save this device?" card (see [DrDevicesStore.onConnected]).
+class _DrSavePromptHost extends StatelessWidget {
+  const _DrSavePromptHost();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = DrDevicesStore.instance;
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final p = store.prompt;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: p == null
+              ? const SizedBox.shrink()
+              : DrSavePromptCard(
+                  key: ValueKey(p.id),
+                  id: p.id,
+                  name: p.name,
+                  platform: p.platform,
+                  signedIn: store.signedIn,
+                  onSave: () async {
+                    store.dismissPrompt(forever: false);
+                    final err = await store.save(p.id, name: p.name);
+                    showToast(err ?? 'Device saved');
+                  },
+                  onEdit: () {
+                    store.dismissPrompt(forever: false);
+                    drAddDevice(context,
+                        edit: DrDeviceItem(id: p.id, name: p.name, online: true));
+                  },
+                  onNotNow: () => store.dismissPrompt(),
+                ),
+        );
+      },
+    );
+  }
+}
+
+/// Signed-in user's initials in the top bar, with a sign-out menu.
+class _DrAccountChip extends StatelessWidget {
+  const _DrAccountChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Obx(() {
+      final name = gFFI.userModel.userName.value;
+      if (!_drAccountsEnabled || name.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(left: 10),
+        child: PopupMenuButton<String>(
+          tooltip: 'Signed in as $name',
+          offset: const Offset(0, 44),
+          onSelected: (v) {
+            if (v == 'devices') drShowTab(DrTab.devices);
+            if (v == 'out') logOutConfirmDialog();
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+                enabled: false,
+                child: Text('Signed in as $name',
+                    style: DrText.sans(13, c.textMuted))),
+            const PopupMenuItem(value: 'devices', child: Text('My devices')),
+            const PopupMenuItem(value: 'out', child: Text('Sign out')),
+          ],
+          child: DrInitials(name, size: 36),
+        ),
+      );
+    });
   }
 }
 
@@ -389,26 +462,11 @@ class DrTransfersPane extends StatefulWidget {
   State<DrTransfersPane> createState() => _DrTransfersPaneState();
 }
 
-class _DrTransfersPaneState extends State<DrTransfersPane> {
-  final _feed = _PeerFeed();
-
-  @override
-  void initState() {
-    super.initState();
-    _feed.start(onChange: () {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _feed.stop();
-    super.dispose();
-  }
-
+class _DrTransfersPaneState extends State<DrTransfersPane>
+    with _DrStoreListener<DrTransfersPane> {
   @override
   Widget build(BuildContext context) => DrTransfersView(
-        devices: _feed.items,
+        devices: store.items,
         onOpen: (id) => connect(context, id, isFileTransfer: true),
       );
 }

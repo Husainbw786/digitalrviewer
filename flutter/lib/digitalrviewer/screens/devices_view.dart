@@ -20,6 +20,13 @@ class DrDevicesView extends StatefulWidget {
   /// Header of the 4th column; the app has no "last connected" time, so it shows the list.
   final String lastSeenHeader;
 
+  /// Account state: when [onSignIn] is set and not signed in, a banner offers to sign in.
+  final bool signedIn;
+  final VoidCallback? onSignIn;
+
+  /// Search text is an ID that isn't in the list: offer to check and save it.
+  final ValueChanged<String>? onAddId;
+
   const DrDevicesView(
       {super.key,
       required this.devices,
@@ -27,7 +34,10 @@ class DrDevicesView extends StatefulWidget {
       required this.onFiles,
       required this.onAddDevice,
       this.menuBuilder,
-      this.lastSeenHeader = 'Last connected'});
+      this.lastSeenHeader = 'Last connected',
+      this.signedIn = true,
+      this.onSignIn,
+      this.onAddId});
 
   @override
   State<DrDevicesView> createState() => _DrDevicesViewState();
@@ -54,8 +64,15 @@ class _DrDevicesViewState extends State<DrDevicesView> {
       if (_filter == DrDeviceFilter.offline && d.online) return false;
       if (q.isEmpty) return true;
       return d.name.toLowerCase().replaceAll(' ', '').contains(q) ||
-          d.id.replaceAll(' ', '').contains(q);
+          d.id.replaceAll(' ', '').contains(q) ||
+          d.note.toLowerCase().replaceAll(' ', '').contains(q);
     }).toList();
+    // A full ID that isn't listed yet: offer to check and save it.
+    final unknownId = widget.onAddId != null &&
+            RegExp(r'^\d{6,}$').hasMatch(q) &&
+            !all.any((d) => d.id == q)
+        ? q
+        : null;
 
     return DrPage(
       child: Column(
@@ -89,6 +106,10 @@ class _DrDevicesViewState extends State<DrDevicesView> {
                   onPressed: widget.onAddDevice),
             ],
           ),
+          if (!widget.signedIn && widget.onSignIn != null) ...[
+            const SizedBox(height: 18),
+            _signInBanner(c),
+          ],
           const SizedBox(height: 22),
           Wrap(spacing: 8, children: [
             DrChip('All · ${all.length}',
@@ -108,12 +129,13 @@ class _DrDevicesViewState extends State<DrDevicesView> {
             padding: EdgeInsets.zero,
             child: Column(children: [
               _header(c),
-              if (rows.isEmpty)
+              if (unknownId != null) _unknownIdRow(c, unknownId, last: rows.isEmpty),
+              if (rows.isEmpty && unknownId == null)
                 Padding(
                   padding: const EdgeInsets.all(28),
                   child: Text(
                       all.isEmpty
-                          ? 'No devices yet. Connect to one from Home and it will be listed here.'
+                          ? 'No devices yet. Add one with its ID, or connect from Home and save it.'
                           : 'No devices match.',
                       style: DrText.sans(14, c.textSubtle)),
                 ),
@@ -126,6 +148,87 @@ class _DrDevicesViewState extends State<DrDevicesView> {
       ),
     );
   }
+
+  Widget _listTag(DrColors c, DrDeviceItem d) {
+    if (d.lastSeen.isEmpty) return Text('—', style: DrText.sans(14, c.textMuted));
+    final strong = d.saved;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: strong ? c.accent : Colors.transparent,
+        border: Border.all(color: strong ? c.accentBorder : c.border),
+        borderRadius: BorderRadius.circular(DrRadius.pill),
+      ),
+      child: Text(d.lastSeen,
+          style: DrText.sans(12, strong ? c.accentText : c.textMuted,
+              weight: FontWeight.w600)),
+    );
+  }
+
+  Widget _signInBanner(DrColors c) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: c.accent,
+          borderRadius: BorderRadius.circular(DrRadius.tile),
+          border: Border.all(color: c.accentBorder),
+        ),
+        child: Row(children: [
+          Icon(Icons.cloud_outlined, size: 20, color: c.accentText),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+                'Sign in to keep your devices in your account and see them on any computer.',
+                style: DrText.sans(13.5, c.accentText, height: 1.4)),
+          ),
+          const SizedBox(width: 12),
+          DrButton('Sign in',
+              height: 38, fontSize: 13, onPressed: widget.onSignIn),
+        ]),
+      );
+
+  Widget _unknownIdRow(DrColors c, String id, {required bool last}) => Container(
+        height: 64,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        decoration: BoxDecoration(
+            color: c.surfaceSunk,
+            border: last ? null : Border(bottom: BorderSide(color: c.divider))),
+        child: Row(children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+                color: c.accent, shape: BoxShape.circle),
+            child: Icon(Icons.search, size: 17, color: c.accentText),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: drFormatId(id),
+                    style: DrText.sans(14, c.text,
+                        weight: FontWeight.w600, tabular: true)),
+                TextSpan(
+                    text: '  isn’t in your list yet',
+                    style: DrText.sans(14, c.textMuted)),
+              ]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          DrButton('Check & add',
+              kind: DrButtonKind.secondary,
+              height: 36,
+              fontSize: 13,
+              onPressed: () => widget.onAddId!(id)),
+          const SizedBox(width: 8),
+          DrButton('Connect',
+              height: 36,
+              fontSize: 13,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              onPressed: () => widget.onConnect(id)),
+        ]),
+      );
 
   /// cells: name, id, system, last connected, status, actions.
   Widget _cells(List<Widget> cells) {
@@ -166,14 +269,26 @@ class _DrDevicesViewState extends State<DrDevicesView> {
           DrInitials(d.name),
           const SizedBox(width: 12),
           Flexible(
-              child: Text(d.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DrText.sans(14, c.text, weight: FontWeight.w600))),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(d.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DrText.sans(14, c.text, weight: FontWeight.w600)),
+                if (d.note.isNotEmpty)
+                  Text(d.note,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DrText.sans(12, c.textSubtle)),
+              ],
+            ),
+          ),
         ]),
         Text(drFormatId(d.id), style: muted),
         Text(d.platform.isEmpty ? '—' : d.platform, style: muted),
-        Text(d.lastSeen.isEmpty ? '—' : d.lastSeen, style: muted),
+        Align(alignment: Alignment.centerLeft, child: _listTag(c, d)),
         DrStatusDot(online: d.online, fontSize: 13),
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           DrButton('Files',

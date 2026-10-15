@@ -5,7 +5,9 @@ import 'dr/theme.dart';
 import 'dr/widgets.dart' show DrNotice;
 import 'dr/screens/shell.dart';
 import 'dr/screens/home_view.dart';
+import 'dr/screens/add_device_dialog.dart';
 import 'dr/screens/devices_view.dart';
+import 'dr/screens/save_prompt.dart';
 import 'dr/screens/incoming_view.dart';
 import 'dr/screens/settings_view.dart';
 import 'dr/screens/transfers_view.dart';
@@ -13,12 +15,12 @@ import 'dr/screens/transfers_view.dart';
 void main() => runApp(const PreviewApp());
 
 const _recent = [
-  DrDeviceItem(id: '482913557', name: 'Design MacBook', online: true, platform: 'macOS', lastSeen: 'Today, 10:42'),
-  DrDeviceItem(id: '129004381', name: 'Office PC', online: true, platform: 'Windows', lastSeen: 'Today, 09:15'),
-  DrDeviceItem(id: '771320916', name: "Ravi's Laptop", online: false, platform: 'Windows', lastSeen: 'Yesterday'),
-  DrDeviceItem(id: '305118642', name: 'Render Server', online: true, platform: 'Linux', lastSeen: '2 days ago'),
-  DrDeviceItem(id: '640227019', name: 'Front Desk', online: true, platform: 'Windows', lastSeen: 'Last week'),
-  DrDeviceItem(id: '918450332', name: 'Home iMac', online: false, platform: 'macOS', lastSeen: 'Last month'),
+  DrDeviceItem(id: '482913557', name: 'Design MacBook', online: true, platform: 'macOS', lastSeen: 'Saved', saved: true, recent: true, note: 'Studio, 2nd floor'),
+  DrDeviceItem(id: '129004381', name: 'Office PC', online: true, platform: 'Windows', lastSeen: 'Saved', saved: true, favourite: true, recent: true),
+  DrDeviceItem(id: '771320916', name: "Ravi's Laptop", online: false, platform: 'Windows', lastSeen: 'Recent', recent: true),
+  DrDeviceItem(id: '305118642', name: 'Render Server', online: true, platform: 'Linux', lastSeen: 'Favourite', favourite: true, recent: true),
+  DrDeviceItem(id: '640227019', name: 'Front Desk', online: true, platform: '', lastSeen: 'Saved', saved: true, note: 'Reception — ask Priya'),
+  DrDeviceItem(id: '918450332', name: 'Home iMac', online: false, platform: 'macOS', lastSeen: 'Recent', recent: true),
 ];
 
 class PreviewApp extends StatefulWidget {
@@ -58,11 +60,34 @@ class _PreviewAppState extends State<PreviewApp> {
     _w = double.tryParse(q['w'] ?? '') ?? 1200;
     _h = double.tryParse(q['h'] ?? '') ?? 760;
     _notice = q['notice'] == '1';
+    _signedIn = q['signedin'] == '1';
+    _prompt = q['prompt'] == '1';
+    if (q['dialog'] == '1') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _addDevice(id: q['id'] ?? ''));
+    }
   }
+
+  late bool _signedIn;
+  late bool _prompt;
+  final _navKey = GlobalKey<NavigatorState>();
+
+  Future<void> _addDevice({String id = ''}) => drShowAddDeviceDialog(
+        _navKey.currentState!.overlay!.context,
+        id: id,
+        signedIn: _signedIn,
+        onConnect: (_) {},
+        onCheck: (id) async {
+          await Future.delayed(const Duration(milliseconds: 600));
+          if (!RegExp(r'^\d{6,}$').hasMatch(id)) return DrIdStatus.invalid;
+          return id.endsWith('0') ? DrIdStatus.offline : DrIdStatus.online;
+        },
+        onSave: (id, name, note) async => null,
+      );
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navKey,
       debugShowCheckedModeBanner: false,
       theme: drThemeData(Brightness.light),
       darkTheme: drThemeData(Brightness.dark),
@@ -104,6 +129,20 @@ class _PreviewAppState extends State<PreviewApp> {
                   Expanded(child: _body(context)),
                 ]),
                 const Positioned(left: 24, top: 26, child: _TrafficLights()),
+                if (_prompt)
+                  Positioned(
+                    right: 24,
+                    bottom: 24,
+                    child: DrSavePromptCard(
+                      id: '771320916',
+                      name: "Ravi's Laptop",
+                      platform: 'Windows',
+                      signedIn: _signedIn,
+                      onSave: () => setState(() => _prompt = false),
+                      onEdit: () => _addDevice(id: '771320916'),
+                      onNotNow: () => setState(() => _prompt = false),
+                    ),
+                  ),
                 if (_incoming)
                   Positioned.fill(
                     child: Container(
@@ -161,9 +200,13 @@ class _PreviewAppState extends State<PreviewApp> {
       case DrTab.devices:
         return DrDevicesView(
           devices: _recent,
+          lastSeenHeader: 'List',
+          signedIn: _signedIn,
+          onSignIn: () => setState(() => _signedIn = true),
           onConnect: (_) {},
           onFiles: (_) {},
-          onAddDevice: () {},
+          onAddDevice: () => _addDevice(),
+          onAddId: (id) => _addDevice(id: id),
         );
       case DrTab.transfers:
         return DrTransfersView(devices: _recent, onOpen: (_) {});
