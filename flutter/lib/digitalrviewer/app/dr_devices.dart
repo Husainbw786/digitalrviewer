@@ -149,10 +149,12 @@ class DrDevicesStore extends ChangeNotifier {
             DrSavedDevice(p.id, name: p.alias, note: p.note, user: user);
         changed = true;
       } else if (local.user == user &&
-          (local.name != p.alias || local.note != p.note)) {
-        local
-          ..name = p.alias
-          ..note = p.note;
+          (local.name != p.alias ||
+              (p.note.isNotEmpty && local.note != p.note))) {
+        // Our API server (rustdesk-api) doesn't store notes: an empty note from the server
+        // never overwrites the one kept on this computer.
+        local.name = p.alias;
+        if (p.note.isNotEmpty) local.note = p.note;
         changed = true;
       }
     }
@@ -351,9 +353,9 @@ class DrDevicesStore extends ChangeNotifier {
     if (existing.alias != name) {
       ok &= await ab.changeAlias(id: d.id, alias: name);
     }
-    // The legacy book has no notes; there the note stays on this computer.
+    // Best effort: servers without note support keep the note on this computer only.
     if (existing.note != note && !gFFI.abModel.legacyMode.value) {
-      ok &= await ab.changeNote(id: d.id, note: note);
+      await ab.changeNote(id: d.id, note: note);
     }
     await ab.pullAb(quiet: true);
     return ok ? null : 'Saved on this computer, but your account was not updated.';
