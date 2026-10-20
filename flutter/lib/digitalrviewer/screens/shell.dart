@@ -19,13 +19,18 @@ class DrTopBar extends StatelessWidget {
   /// Optional widget just left of the settings button (e.g. the update pill).
   final Widget? actions;
 
+  /// Wraps each clickable part (nav, actions, settings, window buttons). The app uses it to
+  /// keep window dragging, which the empty parts of the bar start, away from the buttons.
+  final Widget Function(Widget child)? interactive;
+
   const DrTopBar(
       {super.key,
       required this.tab,
       required this.onTab,
       this.leadingInset = 0,
       this.trailing,
-      this.actions});
+      this.actions,
+      this.interactive});
 
   static const tabs = [DrTab.home, DrTab.devices, DrTab.transfers];
   static const labels = ['Home', 'Devices', 'Transfers'];
@@ -33,6 +38,7 @@ class DrTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = DrColors.of(context);
+    Widget hit(Widget w) => interactive == null ? w : interactive!(w);
     return Container(
       height: 64,
       padding: EdgeInsets.only(left: 24 + leadingInset, right: trailing == null ? 24 : 8),
@@ -43,21 +49,21 @@ class DrTopBar extends StatelessWidget {
           const DrBrand(),
           Expanded(
             child: Center(
-              child: DrSegmentedNav(
+              child: hit(DrSegmentedNav(
                 labels: labels,
                 selected: tabs.indexOf(tab),
                 onSelect: (i) => onTab(tabs[i]),
-              ),
+              )),
             ),
           ),
-          if (actions != null) ...[actions!, const SizedBox(width: 10)],
-          DrIconCircle(
+          if (actions != null) ...[hit(actions!), const SizedBox(width: 10)],
+          hit(DrIconCircle(
             icon: Icons.settings_outlined,
-            tooltip: 'Settings',
+            tooltip: tab == DrTab.settings ? 'Close settings' : 'Settings',
             active: tab == DrTab.settings,
             onTap: () => onTab(DrTab.settings),
-          ),
-          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+          )),
+          if (trailing != null) ...[const SizedBox(width: 12), hit(trailing!)],
         ],
       ),
     );

@@ -2,6 +2,7 @@
 // RustDesk's models. Existing RustDesk pages call into this file through one-line hooks
 // guarded by [kDrUi]; with kDrUi = false the stock RustDesk UI is used unchanged.
 
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout, kPrimaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
@@ -55,6 +56,39 @@ void drShowSettings(SettingsTabKey initialPage) {
 }
 
 void drShowTab(DrTab tab) => _drTab.value = tab;
+
+/// Tab to return to when Settings is closed with the gear.
+DrTab _drLastTab = DrTab.home;
+
+/// Keeps window dragging (and double-click-to-maximise) off the buttons in the top bar.
+class _DrNoDrag extends StatelessWidget {
+  final Widget child;
+  const _DrNoDrag({required this.child});
+
+  static bool _downOnButton = false;
+  static DateTime _lastBarDown = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Runs after any [_DrNoDrag] under the pointer saw the same event (children first).
+  static void onBarPointerDown(PointerDownEvent e) {
+    final onButton = _downOnButton;
+    _downOnButton = false;
+    if (onButton || e.buttons != kPrimaryMouseButton) return;
+    final now = DateTime.now();
+    if (now.difference(_lastBarDown) < kDoubleTapTimeout) {
+      _lastBarDown = DateTime.fromMillisecondsSinceEpoch(0);
+      toggleMaximize(true).then((v) => stateGlobal.setMaximized(v));
+    } else {
+      _lastBarDown = now;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+        onPointerDown: (_) => _downOnButton = true,
+        // Claims drags that start on a button so the bar's drag recogniser never wins.
+        child: GestureDetector(onPanStart: (_) {}, child: child),
+      );
+}
 
 /// The new layout needs more room than the stock UI: enforce a minimum main-window size,
 /// and grow a window restored at a smaller size (e.g. saved by an older build).
@@ -110,6 +144,7 @@ class DrMainWindow extends StatelessWidget {
   Widget _pages(BuildContext context) {
     return Obx(() {
         final tab = _drTab.value;
+        if (tab != DrTab.settings) _drLastTab = tab;
         final initialSettings = _drSettingsInitial.value;
         return Column(children: [
           _titleBar(context, tab),
@@ -134,44 +169,55 @@ class DrMainWindow extends StatelessWidget {
 
   Widget _titleBar(BuildContext context, DrTab tab) {
     final hideSettings = bind.isIncomingOnly() || bind.isDisableSettings();
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onPanStart: (_) => startDragging(true),
-      onPanCancel: () {
-        if (isMacOS) setMovable(true, false);
-      },
-      onPanEnd: (_) {
-        if (isMacOS) setMovable(true, false);
-      },
-      onDoubleTap: () =>
-          toggleMaximize(true).then((v) => stateGlobal.setMaximized(v)),
-      child: DrTopBar(
-        tab: tab,
-        // macOS draws the traffic lights at the top-left of the window.
-        leadingInset: isMacOS ? 62 : 0,
-        actions: const Row(mainAxisSize: MainAxisSize.min, children: [
-          DrUpdatePill(),
-          _DrAccountChip(),
-        ]),
-        onTab: (t) {
-          if (t == DrTab.settings) {
-            if (hideSettings) return;
-            drShowSettings(SettingsTabKey.general);
-          } else {
-            _drTab.value = t;
-          }
+    // Empty parts of the bar move the window (double-click maximises). Buttons are wrapped in
+    // [_DrNoDrag] so a click with a tiny mouse movement isn't turned into a window drag, which
+    // on Windows swallowed clicks on the window buttons.
+    return Listener(
+      onPointerDown: (e) => _DrNoDrag.onBarPointerDown(e),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onPanStart: (_) => startDragging(true),
+        onPanCancel: () {
+          if (isMacOS) setMovable(true, false);
         },
-        trailing: isMacOS || kUseCompatibleUiMode
-            ? null
-            : WindowActionPanel(
-                isMainWindow: true,
-                state: tabController.state,
-                tabController: tabController,
-                invisibleTabKeys: RxList<String>(),
-              ),
+        onPanEnd: (_) {
+          if (isMacOS) setMovable(true, false);
+        },
+        child: DrTopBar(
+          tab: tab,
+          // macOS draws the traffic lights at the top-left of the window.
+          leadingInset: isMacOS ? 62 : 0,
+          interactive: (w) => _DrNoDrag(child: w),
+          actions: const Row(mainAxisSize: MainAxisSize.min, children: [
+            DrUpdatePill(),
+            _DrAccountChip(),
+          ]),
+          onTab: (t) {
+            if (t == DrTab.settings) {
+              if (hideSettings) return;
+              // The gear toggles: a second click closes Settings.
+              if (_drTab.value == DrTab.settings) {
+                _drTab.value = _drLastTab;
+              } else {
+                drShowSettings(SettingsTabKey.general);
+              }
+            } else {
+              _drTab.value = t;
+            }
+          },
+          trailing: isMacOS || kUseCompatibleUiMode
+              ? null
+              : WindowActionPanel(
+                  isMainWindow: true,
+                  state: tabController.state,
+                  tabController: tabController,
+                  invisibleTabKeys: RxList<String>(),
+                ),
+        ),
       ),
     );
   }
+
 }
 
 /// Home tab content, built inside DesktopHomePage.build().
