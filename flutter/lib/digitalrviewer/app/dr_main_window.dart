@@ -47,12 +47,17 @@ ThemeData drAppTheme(ThemeData base) =>
 
 final Rx<DrTab> _drTab = DrTab.home.obs;
 final Rx<SettingsTabKey?> _drSettingsInitial = Rx<SettingsTabKey?>(null);
+DrTab _drTabBeforeSettings = DrTab.home;
 
 /// Replacement for DesktopTabPage.onAddSetting: shows the Settings tab of the main window.
 void drShowSettings(SettingsTabKey initialPage) {
   _drSettingsInitial.value ??= initialPage;
+  if (_drTab.value != DrTab.settings) _drTabBeforeSettings = _drTab.value;
   _drTab.value = DrTab.settings;
 }
+
+/// The settings button toggles: pressed again, it goes back to the tab Settings was opened from.
+void _drCloseSettings() => _drTab.value = _drTabBeforeSettings;
 
 void drShowTab(DrTab tab) => _drTab.value = tab;
 
@@ -156,6 +161,7 @@ class DrMainWindow extends StatelessWidget {
         onTab: (t) {
           if (t == DrTab.settings) {
             if (hideSettings) return;
+            if (tab == DrTab.settings) return _drCloseSettings();
             drShowSettings(SettingsTabKey.general);
           } else {
             _drTab.value = t;
