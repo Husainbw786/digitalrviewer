@@ -18,7 +18,7 @@ pub const ID_SERVER: &str = "163.128.34.42";
 /// Relay server (hbbr).
 pub const RELAY_SERVER: &str = "163.128.34.42:21117";
 /// Accounts, address books and audit (rustdesk-api behind the console's HTTPS host).
-pub const API_SERVER: &str = "https://rustdesk.163-128-34-42.sslip.io";
+pub const API_SERVER: &str = "https://console.digitalrviewer.com";
 /// Public key of the hbbs/hbbr key pair (`/opt/rustdesk/data/id_ed25519.pub` on the server).
 pub const KEY: &str = "ihG8O4mHHiAvvNjVbt02xFUm3umqBfgQFQlyIlyosLQ=";
 
