@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'dr/theme.dart';
-import 'dr/widgets.dart' show DrNotice, DrButton;
+import 'dr/widgets.dart' show DrNotice, DrButton, DrButtonKind;
 import 'dr/screens/shell.dart';
 import 'dr/screens/home_view.dart';
 import 'dr/screens/add_device_dialog.dart';
@@ -44,7 +44,7 @@ class _PreviewAppState extends State<PreviewApp> {
   final Map<String, bool> _toggles = {
     'in': true, 'ask': true, 'file': true, 'clip': false,
   };
-  String _pw = 'one';
+  String _pw = 'click';
   final Map<String, bool> _perms = {'screen': true, 'input': true, 'files': true, 'clip': false};
 
   @override
@@ -230,35 +230,118 @@ class _PreviewAppState extends State<PreviewApp> {
       case DrTab.transfers:
         return DrTransfersView(devices: _recent, onOpen: (_) {});
       case DrTab.settings:
+        const sections = ['Basics', 'Remote access', 'Your sessions', 'Recording', 'Your account', 'Advanced', 'App info'];
         return DrSettingsShell(
-          sections: const ['General', 'Security', 'Display', 'Audio', 'Network', 'About'],
+          sections: sections,
           selected: _settingsSection,
           onSelect: (i) => setState(() => _settingsSection = i),
-          content: DrSettingsPage(
-            title: 'Security',
-            subtitle: 'Control who can reach this device and what they can do.',
-            children: [
-              DrSettingsGroup(children: [
-                DrToggleRow(title: 'Allow incoming connections', description: 'People with your ID and password can ask to connect.', value: _toggles['in']!, onChanged: (v) => setState(() => _toggles['in'] = v)),
-                DrToggleRow(title: 'Ask me before each connection', description: 'Show a prompt you approve before anyone sees your screen.', value: _toggles['ask']!, onChanged: (v) => setState(() => _toggles['ask'] = v)),
-                DrToggleRow(title: 'Allow file transfer', description: 'Let connected devices send and receive files.', value: _toggles['file']!, onChanged: (v) => setState(() => _toggles['file'] = v)),
-                DrToggleRow(title: 'Share clipboard', description: 'Copy on one device, paste on the other.', value: _toggles['clip']!, onChanged: (v) => setState(() => _toggles['clip'] = v)),
-              ]),
-              DrSettingsGroup(title: 'Password', children: [
-                DrRadioCards<String>(
-                  options: const [
-                    DrRadioOption('one', 'One-time password', 'A new password for every session.'),
-                    DrRadioOption('perm', 'Permanent password', 'For your own unattended devices.'),
-                  ],
-                  selected: _pw,
-                  onSelect: (v) => setState(() => _pw = v),
-                ),
-              ]),
-            ],
-          ),
+          content: _settingsSection == 5 ? _advanced() : (_settingsSection == 0 ? _basics() : _remoteAccess()),
         );
     }
   }
+
+  Widget _basics() => DrSettingsPage(
+        title: 'Basics',
+        subtitle: 'How the app looks, which language it speaks, and when it runs.',
+        children: [
+          DrSettingsGroup(title: 'Look and language', children: [
+            DrSettingRow(
+              title: 'Appearance',
+              trailing: DrChoicePills<String>(
+                options: const [('light', 'Light'), ('dark', 'Dark'), ('system', 'Match system')],
+                value: _dark ? 'dark' : 'light',
+                onChanged: (v) => setState(() => _dark = v == 'dark'),
+              ),
+            ),
+            DrSettingRow(
+              title: 'Language',
+              trailing: DrSelect<String>(
+                options: const [('default', 'Same as my computer'), ('en', 'English'), ('hi', 'हिन्दी')],
+                value: 'default',
+                onChanged: (_) {},
+              ),
+            ),
+          ]),
+          DrSettingsGroup(title: 'Availability', children: [
+            DrSettingRow(
+              title: 'Remote access is on',
+              description: 'Other people can connect to this computer with your ID and password.',
+              trailing: DrButton('Pause', kind: DrButtonKind.secondary, height: 38, fontSize: 13, onPressed: () {}),
+            ),
+          ]),
+          DrSettingsGroup(title: 'Stay awake', children: [
+            DrToggleRow(title: 'While someone is connected to this computer', description: 'Stops this computer going to sleep in the middle of a session.', value: true, onChanged: (_) {}),
+            DrToggleRow(title: 'While I’m connected to another computer', value: false, onChanged: (_) {}),
+          ]),
+        ],
+      );
+
+  Widget _remoteAccess() => DrSettingsPage(
+        title: 'Remote access',
+        subtitle: 'Decide how people get into this computer and what they’re allowed to do once they’re in.',
+        children: [
+          DrUnlockBanner(message: 'Remote access can only be changed by an administrator of this computer.', onUnlock: () {}),
+          DrSettingsGroup(title: 'How people get in', children: [
+            DrRadioCards<String>(
+              options: const [
+                DrRadioOption('click', 'Ask me every time', 'A request pops up and you choose Allow or Decline.'),
+                DrRadioOption('password', 'Password only', 'Anyone with the right password gets in without asking.'),
+                DrRadioOption('both', 'Either way', 'A password lets them straight in; without one, you’re asked.'),
+              ],
+              selected: _pw,
+              onSelect: (v) => setState(() => _pw = v),
+            ),
+          ]),
+          DrSettingsGroup(title: 'Passwords', children: [
+            DrSettingRow(
+              title: 'Fresh password length',
+              trailing: DrChoicePills<String>(options: const [('6', '6'), ('8', '8'), ('10', '10')], value: '6', onChanged: (_) {}),
+            ),
+            DrToggleRow(title: 'Numbers only', description: 'Easier to read out over the phone.', value: _toggles['clip']!, onChanged: (v) => setState(() => _toggles['clip'] = v)),
+            DrSettingRow(
+              title: 'Fixed password',
+              description: 'Set or change the password for unattended access.',
+              trailing: DrButton('Set password…', kind: DrButtonKind.secondary, height: 38, fontSize: 13, onPressed: () {}),
+            ),
+          ]),
+          DrSettingsGroup(title: 'What they can do', children: [
+            DrSettingRow(
+              title: 'Access level',
+              description: 'Choose each permission below.',
+              trailing: DrChoicePills<String>(
+                options: const [('full', 'Full control'), ('view', 'View only'), ('custom', 'Choose…')],
+                value: 'custom',
+                onChanged: (_) {},
+              ),
+            ),
+            DrToggleRow(title: 'Use my mouse and keyboard', value: _toggles['in']!, onChanged: (v) => setState(() => _toggles['in'] = v)),
+            DrToggleRow(title: 'Send and receive files', value: _toggles['file']!, onChanged: (v) => setState(() => _toggles['file'] = v)),
+            const DrToggleRow(title: 'Change my settings', value: false, badge: 'Set by your organisation'),
+          ]),
+          DrSettingsGroup(title: 'Protection', children: [
+            DrToggleRow(title: 'End idle sessions automatically', description: 'Disconnects people who haven’t done anything for a while.', value: true, onChanged: (_) {}),
+            DrSubRows(children: [
+              DrSettingRow(title: 'After', trailing: DrInputApply(value: '10', hint: '10', suffix: 'minutes', onApply: (_) async {})),
+            ]),
+          ]),
+        ],
+      );
+
+  Widget _advanced() => DrSettingsPage(
+        title: 'Advanced',
+        subtitle: 'Technical options. The defaults work well for almost everyone — only change these if you know you need to.',
+        children: [
+          DrCollapsibleGroup(title: 'Performance', subtitle: 'Video encoding and how the picture is drawn', initiallyOpen: true, children: [
+            DrToggleRow(title: 'Use the graphics card for video', description: 'Smoother and lighter on the processor when supported.', value: true, onChanged: (_) {}),
+            DrSettingRow(
+              title: 'Preferred video format',
+              trailing: DrSelect<String>(width: 160, options: const [('auto', 'Automatic'), ('vp9', 'VP9'), ('av1', 'AV1')], value: 'auto', onChanged: (_) {}),
+            ),
+          ]),
+          const DrCollapsibleGroup(title: 'Connection', subtitle: 'Direct links, proxies and network fallbacks', children: []),
+          const DrCollapsibleGroup(title: 'Session window', subtitle: 'The bar and screen controls during a session', children: []),
+        ],
+      );
 }
 
 class _TrafficLights extends StatelessWidget {

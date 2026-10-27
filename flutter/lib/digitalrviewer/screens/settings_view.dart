@@ -1,6 +1,7 @@
 // Settings building blocks ("4 · Settings" mockup): left nav, section header, toggle
 // group, radio cards. The app keeps its own setting logic and lays it out with these.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import '../widgets.dart';
@@ -158,12 +159,20 @@ class DrToggleRow extends StatelessWidget {
   final String? description;
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  /// Small tag after the title, e.g. "Set by your organisation".
+  final String? badge;
+
+  /// Extra widget between the text and the toggle (e.g. a "Test" or "Manage…" button).
+  final Widget? extra;
   const DrToggleRow(
       {super.key,
       required this.title,
       this.description,
       required this.value,
-      this.onChanged});
+      this.onChanged,
+      this.badge,
+      this.extra});
 
   @override
   Widget build(BuildContext context) {
@@ -177,16 +186,17 @@ class DrToggleRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: DrText.sans(14, c.text, weight: FontWeight.w600)),
+                _DrRowTitle(title, badge: badge, enabled: onChanged != null),
                 if (description != null) ...[
                   const SizedBox(height: 3),
-                  Text(description!, style: DrText.sans(13, c.textSubtle)),
+                  Text(description!,
+                      style: DrText.sans(13, c.textSubtle, height: 1.4)),
                 ],
               ],
             ),
           ),
         ),
+        if (extra != null) ...[const SizedBox(width: 12), extra!],
         const SizedBox(width: 20),
         DrToggle(value: value, onChanged: onChanged, semanticLabel: title),
       ]),
@@ -271,6 +281,423 @@ class DrRadioCards<T> extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DrRowTitle extends StatelessWidget {
+  final String title;
+  final String? badge;
+  final bool enabled;
+  const _DrRowTitle(this.title, {this.badge, this.enabled = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(title,
+            style: DrText.sans(14, enabled ? c.text : c.textSubtle,
+                weight: FontWeight.w600)),
+        if (badge != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: c.accent,
+              borderRadius: BorderRadius.circular(DrRadius.pill),
+            ),
+            child: Text(badge!,
+                style: DrText.sans(11, c.accentText, weight: FontWeight.w600)),
+          ),
+      ],
+    );
+  }
+}
+
+/// A settings row: title + optional description on the left, any control on the right.
+class DrSettingRow extends StatelessWidget {
+  final String title;
+  final String? description;
+  final Widget? trailing;
+  final String? badge;
+  final bool enabled;
+
+  /// Put the control under the text instead of beside it (wide controls).
+  final Widget? below;
+  const DrSettingRow(
+      {super.key,
+      required this.title,
+      this.description,
+      this.trailing,
+      this.badge,
+      this.enabled = true,
+      this.below});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DrRowTitle(title, badge: badge, enabled: enabled),
+                  if (description != null) ...[
+                    const SizedBox(height: 3),
+                    Text(description!,
+                        style: DrText.sans(13, c.textSubtle, height: 1.4)),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) ...[const SizedBox(width: 20), trailing!],
+          ]),
+          if (below != null) ...[const SizedBox(height: 12), below!],
+        ],
+      ),
+    );
+  }
+}
+
+/// Small segmented choice (2–4 short options) used inside settings rows.
+class DrChoicePills<T> extends StatelessWidget {
+  final List<(T, String)> options;
+  final T? value;
+  final ValueChanged<T>? onChanged;
+  const DrChoicePills(
+      {super.key, required this.options, required this.value, this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    final enabled = onChanged != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+            color: c.chrome, borderRadius: BorderRadius.circular(DrRadius.pill)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final o in options)
+              MouseRegion(
+                cursor: enabled
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: GestureDetector(
+                  onTap: enabled ? () => onChanged!(o.$1) : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    height: 30,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: o.$1 == value ? c.surface : Colors.transparent,
+                      borderRadius: BorderRadius.circular(DrRadius.pill),
+                      boxShadow: o.$1 == value ? DrShadow.segmentOn : null,
+                    ),
+                    child: Text(o.$2,
+                        style: DrText.sans(
+                            13, o.$1 == value ? c.text : c.textMuted,
+                            weight: o.$1 == value
+                                ? FontWeight.w600
+                                : FontWeight.w500)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Rounded dropdown in the design language.
+class DrSelect<T> extends StatelessWidget {
+  final List<(T, String)> options;
+  final T? value;
+  final ValueChanged<T>? onChanged;
+  final double width;
+  const DrSelect(
+      {super.key,
+      required this.options,
+      required this.value,
+      this.onChanged,
+      this.width = 220});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    final has = options.any((o) => o.$1 == value);
+    return Container(
+      width: width,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: c.borderStrong),
+        borderRadius: BorderRadius.circular(DrRadius.pill),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: has ? value : null,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(14),
+          dropdownColor: c.surface,
+          icon: Icon(Icons.expand_more, size: 18, color: c.textMuted),
+          style: DrText.sans(13.5, c.text),
+          onChanged:
+              onChanged == null ? null : (v) => v == null ? null : onChanged!(v),
+          items: [
+            for (final o in options)
+              DropdownMenuItem<T>(
+                  value: o.$1,
+                  child: Text(o.$2,
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Short text/number field with an Apply button that appears only when the value changed.
+class DrInputApply extends StatefulWidget {
+  final String value;
+  final String hint;
+  final String? suffix;
+  final bool enabled;
+  final String? allowPattern;
+  final Future<void> Function(String) onApply;
+  final double width;
+  const DrInputApply(
+      {super.key,
+      required this.value,
+      required this.onApply,
+      this.hint = '',
+      this.suffix,
+      this.enabled = true,
+      this.allowPattern,
+      this.width = 96});
+
+  @override
+  State<DrInputApply> createState() => _DrInputApplyState();
+}
+
+class _DrInputApplyState extends State<DrInputApply> {
+  late final _ctl = TextEditingController(text: widget.value);
+  late String _saved = widget.value;
+
+  @override
+  void didUpdateWidget(covariant DrInputApply old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value && _ctl.text == _saved) {
+      _ctl.text = widget.value;
+      _saved = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    final dirty = _ctl.text.trim() != _saved.trim();
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: widget.width,
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: widget.enabled ? c.surface : c.disabledFill,
+          border: Border.all(color: c.borderStrong),
+          borderRadius: BorderRadius.circular(DrRadius.pill),
+        ),
+        child: TextField(
+          controller: _ctl,
+          enabled: widget.enabled,
+          onChanged: (_) => setState(() {}),
+          inputFormatters: widget.allowPattern == null
+              ? null
+              : [FilteringTextInputFormatter.allow(RegExp(widget.allowPattern!))],
+          style: DrText.sans(13.5, c.text, tabular: true),
+          decoration: InputDecoration(
+            isCollapsed: true,
+            filled: false,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            hintText: widget.hint,
+            hintStyle: DrText.sans(13.5, c.placeholder),
+          ),
+        ),
+      ),
+      if (widget.suffix != null) ...[
+        const SizedBox(width: 8),
+        Text(widget.suffix!, style: DrText.sans(13, c.textMuted)),
+      ],
+      if (dirty && widget.enabled) ...[
+        const SizedBox(width: 8),
+        DrButton('Apply', height: 36, fontSize: 13, onPressed: () async {
+          final v = _ctl.text.trim();
+          await widget.onApply(v);
+          if (mounted) setState(() => _saved = v);
+        }),
+      ],
+    ]);
+  }
+}
+
+/// Indented block of rows that only matters while its parent option is on.
+class DrSubRows extends StatelessWidget {
+  final List<Widget> children;
+  const DrSubRows({super.key, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Container(
+      margin: const EdgeInsets.only(left: 4, bottom: 10),
+      padding: const EdgeInsets.only(left: 18),
+      decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: c.accentBorder, width: 2))),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    );
+  }
+}
+
+/// A settings group that starts collapsed (used for the Advanced section).
+class DrCollapsibleGroup extends StatefulWidget {
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+  final bool initiallyOpen;
+  const DrCollapsibleGroup(
+      {super.key,
+      required this.title,
+      this.subtitle,
+      required this.children,
+      this.initiallyOpen = false});
+
+  @override
+  State<DrCollapsibleGroup> createState() => _DrCollapsibleGroupState();
+}
+
+class _DrCollapsibleGroupState extends State<DrCollapsibleGroup> {
+  late bool _open = widget.initiallyOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: DrCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _open = !_open),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 18, 18, 18),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.title,
+                              style: DrText.sans(15, c.text,
+                                  weight: FontWeight.w600)),
+                          if (widget.subtitle != null) ...[
+                            const SizedBox(height: 3),
+                            Text(widget.subtitle!,
+                                style: DrText.sans(13, c.textSubtle)),
+                          ],
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _open ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 160),
+                      child: Icon(Icons.expand_more, color: c.textMuted),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            if (_open)
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+                decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: c.divider))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < widget.children.length; i++)
+                      Container(
+                        decoration: BoxDecoration(
+                            border: i == widget.children.length - 1
+                                ? null
+                                : Border(
+                                    bottom: BorderSide(color: c.divider))),
+                        child: widget.children[i],
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "These settings are locked" banner with an Unlock button.
+class DrUnlockBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onUnlock;
+  const DrUnlockBanner(
+      {super.key, required this.message, required this.onUnlock});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = DrColors.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: c.accent,
+        border: Border.all(color: c.accentBorder),
+        borderRadius: BorderRadius.circular(DrRadius.tile),
+      ),
+      child: Row(children: [
+        Icon(Icons.lock_outline, size: 20, color: c.accentText),
+        const SizedBox(width: 12),
+        Expanded(
+            child: Text(message,
+                style: DrText.sans(13.5, c.accentText, height: 1.4))),
+        const SizedBox(width: 12),
+        DrButton('Unlock', height: 38, fontSize: 13, onPressed: onUnlock),
+      ]),
     );
   }
 }

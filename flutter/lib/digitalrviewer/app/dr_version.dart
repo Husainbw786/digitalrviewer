@@ -4,4 +4,4 @@
 //
 // Format: <upstream RustDesk version>.<our build>. The upstream part stays in Cargo.toml
 // because peers compare that version during connections.
-const String kDrVersion = '1.5.0.7';
+const String kDrVersion = '1.6.0';

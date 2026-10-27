@@ -25,7 +25,16 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
 import '../../digitalrviewer/app/dr_main_window.dart' show kDrUi;
-import '../../digitalrviewer/screens/settings_view.dart' show DrSettingsShell;
+import '../../digitalrviewer/app/dr_update.dart' show DrUpdater, DrUpdateStage;
+import '../../digitalrviewer/app/dr_version.dart' show kDrVersion;
+import '../../digitalrviewer/screens/settings_view.dart';
+import '../../digitalrviewer/theme.dart' show DrColors, DrText, kDrDisplayName;
+import '../../digitalrviewer/widgets.dart'
+    show DrButton, DrButtonKind, DrInitials, DrLink, DrLogoMark, drFormatId;
+
+part '../../digitalrviewer/settings/dr_settings_root.dart';
+part '../../digitalrviewer/settings/dr_settings_access.dart';
+part '../../digitalrviewer/settings/dr_settings_more.dart';
 
 const double _kTabWidth = 200;
 const double _kTabHeight = 42;
@@ -276,28 +285,12 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget build(BuildContext context) {
     super.build(context);
     if (kDrUi && !isWeb) {
-      final tabs = _settingTabs();
+      // Digital R Viewer settings (digitalrviewer/settings/): our sections and wording over
+      // the same option keys. The stock tabs below stay for kDrUi == false.
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: _buildBlock(children: [
-          Expanded(
-            child: Obx(() => DrSettingsShell(
-                  sections: tabs.map((t) => translate(t.label)).toList(),
-                  selected: tabs.indexWhere((t) => t.key == selectedTab.value),
-                  onSelect: (i) {
-                    final index =
-                        DesktopSettingPage.tabKeys.indexOf(tabs[i].key);
-                    if (index == -1) return;
-                    controller.jumpToPage(index);
-                    selectedTab.value = tabs[i].key;
-                  },
-                  content: PageView(
-                    controller: controller,
-                    physics: NeverScrollableScrollPhysics(),
-                    children: _children(),
-                  ),
-                )),
-          ),
+          Expanded(child: _DrSettingsRoot(stockTab: selectedTab)),
         ]),
       );
     }
