@@ -38,6 +38,7 @@ class DrNetworkSwitch extends StatelessWidget {
         child: DrSegmentedNav(
           labels: const ['Digital R Viewer', 'RustDesk app'],
           selected: value == DrNetwork.ours ? 0 : 1,
+          compact: true,
           onSelect: (i) =>
               onChanged(i == 0 ? DrNetwork.ours : DrNetwork.rustdesk),
         ),

@@ -211,17 +211,21 @@ class DrSegmentedNav extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onSelect;
 
+  /// Smaller segments for use inside cards.
+  final bool compact;
+
   const DrSegmentedNav(
       {super.key,
       required this.labels,
       required this.selected,
-      required this.onSelect});
+      required this.onSelect,
+      this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     final c = DrColors.of(context);
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(compact ? 3 : 4),
       decoration: BoxDecoration(
           color: c.chrome, borderRadius: BorderRadius.circular(DrRadius.pill)),
       child: Row(
@@ -232,6 +236,7 @@ class DrSegmentedNav extends StatelessWidget {
             _Segment(
                 label: labels[i],
                 on: i == selected,
+                compact: compact,
                 onTap: () => onSelect(i)),
           ]
         ],
@@ -244,7 +249,12 @@ class _Segment extends StatefulWidget {
   final String label;
   final bool on;
   final VoidCallback onTap;
-  const _Segment({required this.label, required this.on, required this.onTap});
+  final bool compact;
+  const _Segment(
+      {required this.label,
+      required this.on,
+      required this.onTap,
+      this.compact = false});
   @override
   State<_Segment> createState() => _SegmentState();
 }
@@ -262,8 +272,8 @@ class _SegmentState extends State<_Segment> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          height: widget.compact ? 26 : 32,
+          padding: EdgeInsets.symmetric(horizontal: widget.compact ? 12 : 16),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: widget.on ? c.surface : Colors.transparent,
@@ -272,7 +282,7 @@ class _SegmentState extends State<_Segment> {
           ),
           child: Text(widget.label,
               style: DrText.sans(
-                  13,
+                  widget.compact ? 12 : 13,
                   widget.on ? c.text : (_hover ? c.text : c.textMuted),
                   weight: widget.on ? FontWeight.w600 : FontWeight.w500)),
         ),

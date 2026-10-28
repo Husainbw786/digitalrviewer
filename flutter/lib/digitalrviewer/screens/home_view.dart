@@ -96,21 +96,14 @@ class DrHomeView extends StatelessWidget {
         // Side by side like the mockup when there is room, stacked otherwise.
         final sideBySide = w >= 760;
         final hero = sideBySide
-            ? ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 300),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                          flex: 108,
-                          child: _shareCard(context, c, fill: true)),
-                      const SizedBox(width: 20),
-                      Expanded(
-                          flex: 100,
-                          child: _connectCard(context, c, fill: true)),
-                    ],
-                  ),
+            ? IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _shareCard(context, c, fill: true)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _connectCard(context, c, fill: true)),
+                  ],
                 ),
               )
             : Column(
@@ -127,7 +120,7 @@ class DrHomeView extends StatelessWidget {
           children: [
             if (banner != null) banner!,
             hero,
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
@@ -158,16 +151,16 @@ class DrHomeView extends StatelessWidget {
 
   Widget _shareCard(BuildContext context, DrColors c, {required bool fill}) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(32, 30, 32, 30),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       decoration: BoxDecoration(
-          color: c.accent, borderRadius: BorderRadius.circular(DrRadius.hero)),
+          color: c.accent, borderRadius: BorderRadius.circular(DrRadius.card)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Share this device',
-              style: DrText.sans(13, c.accentTextMuted, weight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Text('Let someone help you', style: DrText.serif(32, c.text)),
+              style: DrText.sans(12, c.accentTextMuted, weight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('Let someone help you', style: DrText.serif(22, c.text)),
           if (data.statusWarning != null) ...[
             const SizedBox(height: 10),
             Row(children: [
@@ -185,9 +178,9 @@ class DrHomeView extends StatelessWidget {
             ]),
           ],
           if (fill) const Spacer(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Wrap(
-            spacing: 40,
+            spacing: 32,
             runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: [
@@ -196,36 +189,41 @@ class DrHomeView extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: SelectableText(drFormatId(data.myId),
-                        style: DrText.sans(46, c.text,
+                        style: DrText.sans(30, c.text,
                             weight: FontWeight.w600,
-                            letterSpacing: -0.46,
+                            letterSpacing: -0.3,
                             height: 1.05,
                             tabular: true)),
                   )),
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 2),
                 child: _labelled(
                     c,
                     'Password',
                     SelectableText(data.password ?? '—',
-                        style: DrText.sans(24, c.text,
-                            weight: FontWeight.w500, letterSpacing: 2.4))),
+                        style: DrText.sans(18, c.text,
+                            weight: FontWeight.w500, letterSpacing: 1.8))),
               ),
             ],
           ),
-          const SizedBox(height: 26),
-          Wrap(spacing: 10, runSpacing: 10, children: [
+          const SizedBox(height: 18),
+          Wrap(spacing: 8, runSpacing: 8, children: [
             DrButton(
                 data.password == null ? 'Copy ID' : 'Copy ID and password',
+                height: 38,
+                fontSize: 13,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 onPressed: onCopyCredentials),
             if (data.password != null)
               DrButton('New password',
                   kind: DrButtonKind.ghostOnAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  height: 38,
+                  fontSize: 13,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   onPressed: data.canRefreshPassword ? onNewPassword : null),
           ]),
           if (onRustDeskInvite != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             DrLink('Helping someone who uses the RustDesk app? Get a code',
                 onTap: onRustDeskInvite!,
                 weight: FontWeight.w500,
@@ -240,26 +238,26 @@ class DrHomeView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: DrText.sans(13, c.accentTextMuted)),
-          const SizedBox(height: 4),
+          Text(label, style: DrText.sans(12, c.accentTextMuted)),
+          const SizedBox(height: 2),
           value,
         ],
       );
 
   Widget _connectCard(BuildContext context, DrColors c, {required bool fill}) {
     return DrCard(
-      radius: DrRadius.hero,
+      radius: DrRadius.card,
       shadow: true,
-      padding: const EdgeInsets.fromLTRB(32, 30, 32, 30),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('Connect',
-              style: DrText.sans(13, c.textMuted, weight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Text('Reach another device', style: DrText.serif(32, c.text)),
+              style: DrText.sans(12, c.textMuted, weight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('Reach another device', style: DrText.serif(22, c.text)),
           if (fill) const Spacer(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -270,7 +268,7 @@ class DrHomeView extends StatelessWidget {
                   network == DrNetwork.rustdesk
                       ? 'RustDesk ID'
                       : 'Device ID',
-                  style: DrText.sans(13, c.textMuted)),
+                  style: DrText.sans(12, c.textMuted)),
               if (onNetwork != null)
                 DrNetworkSwitch(value: network, onChanged: onNetwork!),
             ],
@@ -281,7 +279,9 @@ class DrHomeView extends StatelessWidget {
                 controller: idController,
                 focusNode: idFocus,
                 hint: '000 000 000',
-                letterSpacing: 0.72,
+                height: 44,
+                fontSize: 15,
+                letterSpacing: 0.6,
                 semanticLabel: 'Device ID',
                 onSubmitted: onConnect,
               ),
@@ -289,10 +289,10 @@ class DrHomeView extends StatelessWidget {
             const SizedBox(height: 10),
             connectHint!,
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           DrButton('Connect',
-              height: 50,
-              fontSize: 15,
+              height: 42,
+              fontSize: 14,
               expand: true,
               onPressed: () => onConnect(idController.text)),
         ],
