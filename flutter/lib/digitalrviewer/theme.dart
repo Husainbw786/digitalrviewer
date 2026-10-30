@@ -289,7 +289,8 @@ ThemeData drThemeData(Brightness brightness, {ThemeData? base}) {
           borderSide: BorderSide(color: c.text, width: 1.5)),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.all(Colors.white),
+      thumbColor: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected) ? c.onPrimary : Colors.white),
       trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected) ? c.primary : c.toggleOff),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),

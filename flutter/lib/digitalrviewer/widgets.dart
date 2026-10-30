@@ -184,7 +184,8 @@ class DrToggle extends StatelessWidget {
                   width: knob,
                   height: knob,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    // The "on" track is light in dark mode, so the knob flips to stay visible.
+                    color: value ? c.onPrimary : Colors.white,
                     shape: BoxShape.circle,
                     boxShadow: value
                         ? null
