@@ -15,6 +15,7 @@ import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
@@ -90,6 +91,55 @@ class _DrNoDrag extends StatelessWidget {
       );
 }
 
+/// The stock DesktopTab handled the main window's close event (the window prevents closing and
+/// hides to the tray instead). DrMainWindow replaces DesktopTab, so it takes over that duty;
+/// without it the close button did nothing.
+class _DrCloseHandler extends StatefulWidget {
+  final Widget child;
+  const _DrCloseHandler({required this.child});
+
+  @override
+  State<_DrCloseHandler> createState() => _DrCloseHandlerState();
+}
+
+class _DrCloseHandlerState extends State<_DrCloseHandler> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    try {
+      await saveWindowPosition(WindowType.Main, flush: true);
+    } catch (e) {
+      debugPrint('Error saving window position: $e');
+    }
+    if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
+      await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
+    }
+    // macOS won't hide a full-screen window: leave full screen first.
+    if (isMacOS && await windowManager.isFullScreen()) {
+      await windowManager.setFullScreen(false);
+      for (var i = 0; i < 30 && await windowManager.isFullScreen(); i++) {
+        await Future.delayed(const Duration(milliseconds: 30));
+      }
+      await Future.delayed(const Duration(milliseconds: 700));
+    }
+    await windowManager.hide();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 /// The new layout needs more room than the stock UI: enforce a minimum main-window size,
 /// and grow a window restored at a smaller size (e.g. saved by an older build).
 const Size kDrMinMainWindowSize = Size(960, 660);
@@ -132,12 +182,14 @@ class DrMainWindow extends StatelessWidget {
     final c = DrColors.of(context);
     DrUpdater.instance.start();
     DrDevicesStore.instance.start();
-    return Scaffold(
-      backgroundColor: c.bg,
-      body: Stack(children: [
-        _pages(context),
-        const Positioned(right: 24, bottom: 56, child: _DrSavePromptHost()),
-      ]),
+    return _DrCloseHandler(
+      child: Scaffold(
+        backgroundColor: c.bg,
+        body: Stack(children: [
+          _pages(context),
+          const Positioned(right: 24, bottom: 56, child: _DrSavePromptHost()),
+        ]),
+      ),
     );
   }
 
