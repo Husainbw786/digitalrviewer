@@ -494,49 +494,18 @@ class DrInitials extends StatelessWidget {
   }
 }
 
-/// Black rounded-square logo mark with a monitor glyph (top bar).
+/// The Digital R Viewer mark (two screens with the "R" cursor), from assets/dr_mark.png.
 class DrLogoMark extends StatelessWidget {
   final double size;
   const DrLogoMark({super.key, this.size = 28});
 
   @override
-  Widget build(BuildContext context) {
-    final c = DrColors.of(context);
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-          color: c.primary, borderRadius: BorderRadius.circular(DrRadius.logo)),
-      child: CustomPaint(painter: _MonitorGlyph(c.onPrimary)),
-    );
-  }
-}
-
-class _MonitorGlyph extends CustomPainter {
-  final Color color;
-  _MonitorGlyph(this.color);
-  @override
-  void paint(Canvas canvas, Size s) {
-    // 18-unit viewBox scaled to 15/28 of the tile, centred (matches the mockup SVG).
-    final scale = s.width * 15 / 28 / 18;
-    final off = (s.width - 18 * scale) / 2;
-    canvas.translate(off, off);
-    canvas.scale(scale);
-    final p = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            const Rect.fromLTWH(2, 3, 14, 9.5), const Radius.circular(2)),
-        p);
-    canvas.drawLine(const Offset(6.5, 15.5), const Offset(11.5, 15.5), p);
-  }
-
-  @override
-  bool shouldRepaint(_MonitorGlyph old) => old.color != color;
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size,
+        child: Image.asset('assets/dr_mark.png',
+            fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+      );
 }
 
 /// Brand lockup used in the top bar.

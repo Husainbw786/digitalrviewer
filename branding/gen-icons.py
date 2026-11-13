@@ -17,6 +17,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "branding", "logo-1024.png")
+# Optional: the mark with its inner details cut out, for the macOS menu-bar template (which only
+# uses the alpha channel, so solid inner details would vanish into the shape).
+TRAY_SRC = os.path.join(ROOT, "branding", "logo-tray-1024.png")
 
 # Placeholder brand — replace with the real logo (logo-1024.png) and colour later.
 BRAND_COLOR = "#2F5BEA"
@@ -52,6 +55,14 @@ def mac_app_icon(src):
     tile = 824
     mask = Image.new("L", (tile, tile), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, tile - 1, tile - 1], radius=int(tile * 0.225), fill=255)
+    if os.path.exists(SRC):
+        # The real logo has a transparent background: put it on a white tile with some margin.
+        bg = Image.new("RGBA", (tile, tile), "white")
+        inner = int(tile * 0.78)
+        art = src.resize((inner, inner), Image.LANCZOS)
+        bg.alpha_composite(art, ((tile - inner) // 2, (tile - inner) // 2))
+        canvas.paste(bg, (100, 100), mask)
+        return canvas
     art = src.resize((tile, tile), Image.LANCZOS)
     canvas.paste(art, (100, 100), mask)
     return canvas
@@ -60,7 +71,8 @@ def mac_app_icon(src):
 def tray_template(size):
     # Template image: macOS only uses the alpha channel, so draw the monogram/logo as black.
     if os.path.exists(SRC):
-        alpha = master().resize((size, size), Image.LANCZOS).split()[3]
+        tray_src = Image.open(TRAY_SRC).convert("RGBA") if os.path.exists(TRAY_SRC) else master()
+        alpha = tray_src.resize((size, size), Image.LANCZOS).split()[3]
         img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         img.putalpha(alpha)
         return img
